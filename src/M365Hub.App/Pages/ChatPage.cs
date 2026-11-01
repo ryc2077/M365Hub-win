@@ -344,11 +344,6 @@ public sealed partial class ChatPage : UserControl
                 var enc = await BitmapEncoder.CreateAsync(BitmapEncoder.JpegEncoderId, outStream);
                 enc.SetPixelData(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Ignore,
                     transform.ScaledWidth, transform.ScaledHeight, 96, 96, pixels.DetachPixelData());
-                var quality = new BitmapPropertySet
-                {
-                    { "ImageQuality", new BitmapTypedValue(0.85f, BitmapPropertyType.Single) },
-                };
-                await enc.BitmapProperties.SetPropertiesAsync(quality);
                 await enc.FlushAsync();
             }
             _atts.Add(new Att { FilePath = dest, Name = file.Name, IsImage = true });
