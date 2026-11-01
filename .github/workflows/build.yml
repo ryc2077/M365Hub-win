@@ -1,0 +1,115 @@
+name: Build Windows app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+  # The real-account test posts the short-lived PKCE auth URL to an issue
+  # so the operator can read it instantly (job logs lag too far behind);
+  # the issue is closed by the test script when it finishes.
+  issues: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # Core library tests: the same checks as the Android host tests
+      # (Markdown, TeXSplit, MathSegments, TeX layout geometry, and the
+      # radical as one connected polyline).
+      - name: Core tests
+        run: dotnet run --project tests/M365Hub.Tests -c Release
+
+      - name: Build WinUI app (x64)
+        run: dotnet build src/M365Hub.App/M365Hub.App.csproj -c Release -r win-x64
+
+      - name: Build WinUI app (ARM64)
+        run: dotnet build src/M365Hub.App/M365Hub.App.csproj -c Release -r win-arm64
+
+      # Gateway cold start, through the exact binary the app ships.
+      - name: Gateway cold-start test
+        shell: bash
+        run: bash scripts/test-gateway-win.sh
+
+      # Launch the built WinUI app and prove its gateway comes up, the
+      # way the Mac CI does with the app launch test.
+      - name: App launch test
+        shell: powershell
+        run: |
+          $exe = "src/M365Hub.App/bin/Release/net8.0-windows10.0.19041.0/win-x64/M365Hub.App.exe"
+          if (-not (Test-Path $exe)) { throw "app exe not found: $exe" }
+          Remove-Item -Recurse -Force "$env:LOCALAPPDATA/M365Hub" -ErrorAction SilentlyContinue
+          $p = Start-Process -FilePath $exe -PassThru
+          Write-Host "app pid: $($p.Id)"
+          $up = $false
+          for ($i = 1; $i -le 30; $i++) {
+            $code = curl.exe -s -o NUL -w "%{http_code}" -m 2 http://127.0.0.1:8230/api/admin/session
+            Write-Host "attempt ${i}: http=$code"
+            if ($code -ne "000" -and $code -ne "") { $up = $true; break }
+            Start-Sleep -Seconds 1
+          }
+          Write-Host "gateway up: $up"
+          Get-Content "$env:LOCALAPPDATA/M365Hub/serve-windows.log" -ErrorAction SilentlyContinue | Select-Object -Last 20
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          Get-Process m365hub -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          if (-not $up) { throw "APP-LAUNCH-TEST: FAIL - app gateway never answered" }
+          Write-Host "APP-LAUNCH-TEST: PASS"
+
+      # Account-add + chat, through the exact endpoints the WinUI app
+      # calls: admin login (forced password change), accounts list,
+      # PKCE/device start, bogus callback rejection, and chat with zero
+      # accounts. Completing the Microsoft sign-in needs a human in the
+      # browser, so this proves the flows start and fail cleanly; it
+      # cannot mint an account by itself.
+      - name: Account add and chat test
+        shell: bash
+        run: bash scripts/test-account-chat-win.sh
+
+      # Real-account test via PKCE: add a Microsoft 365 account through
+      # the browser PKCE flow and send one real chat message. PKCE uses
+      # the Office web Copilot client, not the FOCI "Microsoft Office"
+      # client the device-code flow uses, so a Conditional Access policy
+      # that blocks the latter may still allow this. The operator signs
+      # in with the auth URL from the issue and posts the callback URL
+      # back as a comment; the script polls for it (see the script).
+      # No account credential is stored in the repo or the workflow.
+      # The auth URL goes out through an issue (see the script), so pass
+      # the token explicitly: $GITHUB_TOKEN is not set in run steps on
+      # its own.
+      - name: Real account test (PKCE)
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/test-real-account-pkce-win.sh
+
+      - name: Collect test evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p test-evidence
+          cp "${RUNNER_TEMP}/m365hub-gateway-test/serve-test.log" test-evidence/ 2>/dev/null || true
+          cp "${RUNNER_TEMP}/m365hub-account-chat-win-summary.txt" test-evidence/ 2>/dev/null || true
+          cp "${RUNNER_TEMP}/m365hub-real-account-pkce-win-summary.txt" test-evidence/ 2>/dev/null || true
+          cp "$LOCALAPPDATA/M365Hub/serve-windows.log" test-evidence/serve-windows-app.log 2>/dev/null || true
+          ls -la test-evidence/
+
+      - name: Upload Windows app
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: M365Hub-windows
+          path: |
+            src/M365Hub.App/bin/Release/net8.0-windows10.0.19041.0/win-x64/
+            src/M365Hub.App/bin/Release/net8.0-windows10.0.19041.0/win-arm64/
+            test-evidence/
