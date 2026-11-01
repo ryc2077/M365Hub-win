@@ -16,9 +16,9 @@
                 <controls:NavigationViewItem Content="仪表盘" Tag="dashboard" Icon="Home" />
                 <controls:NavigationViewItem Content="账号" Tag="accounts" Icon="Contact" />
                 <controls:NavigationViewItem Content="模型" Tag="models" Icon="Library" />
-                <controls:NavigationViewItem Content="用量" Tag="usage" Icon="Pie" />
+                <controls:NavigationViewItem Content="用量" Tag="usage" Icon="List" />
                 <controls:NavigationViewItem Content="代理" Tag="proxies" Icon="Globe" />
-                <controls:NavigationViewItem Content="对话" Tag="conversations" Icon="ChatBubbles" />
+                <controls:NavigationViewItem Content="对话" Tag="conversations" Icon="Comment" />
                 <controls:NavigationViewItem Content="本地记忆" Tag="memory" Icon="Bookmarks" />
                 <controls:NavigationViewItem Content="设置" Tag="settings" Icon="Setting" />
             </controls:NavigationView.MenuItems>
