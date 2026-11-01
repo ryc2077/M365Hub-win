@@ -29,6 +29,12 @@
 # This is the supported non-interactive mode. The
 # --dangerously-bypass-approvals-and-sandbox flag is never used here: it
 # also disables sandboxing.
+#
+# Sandbox mode (run 18 finding): -s workspace-write alone left the
+# sandbox read-only on the Windows runner, so writes were "blocked by
+# policy" even with approval: never. The sandbox mode is therefore also
+# set in config.toml below (belt and braces); the run fails fast if the
+# session header still does not show workspace-write.
 set -u
 BASE="http://127.0.0.1:8230"
 TMP="${RUNNER_TEMP:-/tmp}"
@@ -124,6 +130,7 @@ mkdir -p "$HOME/.codex"
 cat > "$HOME/.codex/config.toml" <<'EOF'
 model_provider = "m365hub"
 model = "gpt-4-auto"
+sandbox_mode = "workspace-write"
 [model_providers.m365hub]
 name = "m365hub"
 base_url = "http://127.0.0.1:8230/v1"
@@ -146,6 +153,11 @@ echo "codex round 1 exit: $?" | tee -a "$SUMMARY"
 grep -q "approval: never" "$TMP/codex1.log" \
   && pass "codex ran with approval: never" \
   || fail "codex did not run with approval: never (guardian path may be back)"
+# The session header must also show a workspace-write sandbox, or every
+# write is "blocked by policy" the way run 18 was.
+grep -q "sandbox: workspace-write" "$TMP/codex1.log" \
+  && pass "codex ran with sandbox: workspace-write" \
+  || fail "codex sandbox is not workspace-write (writes will be blocked by policy)"
 if [ -f "$WORKDIR/hello.txt" ]; then
   CONTENT="$(cat "$WORKDIR/hello.txt")"
   echo "hello.txt: [$CONTENT]" | tee -a "$SUMMARY"
