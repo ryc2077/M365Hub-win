@@ -95,6 +95,10 @@ jobs:
             Start-Sleep -Seconds 1
           }
           Write-Host "gateway up: $up"
+          # The app flips to the login page a couple of seconds after
+          # the gateway answers; wait so the screenshot shows the login
+          # page, not the "starting gateway" screen.
+          Start-Sleep -Seconds 5
           $p.Refresh()
           Write-Host "app process alive: $(-not $p.HasExited), exit code: $($p.ExitCode)"
           Get-Content "$env:LOCALAPPDATA/M365Hub/serve-windows.log" -ErrorAction SilentlyContinue | Select-Object -Last 20
@@ -137,6 +141,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash scripts/test-real-account-pkce-win.sh
 
+      # CodeX tool-call test: install the Codex CLI on the runner,
+      # point it at the gateway the PKCE step left running (same
+      # account), and prove real tool calling: codex exec creates a
+      # file, then appends a line and cats it. Both file contents are
+      # verified on disk, so a model merely claiming it did the work
+      # fails. The PKCE step hands the gateway off via a PID file; this
+      # script stops the gateway when it is done.
+      - name: CodeX tool-call test
+        shell: bash
+        run: bash scripts/test-codex-win.sh
+
       # Crash diagnostics: the app-crash.log the app writes on an
       # unhandled exception, plus the .NET Runtime / Application Error
       # entries (event IDs 1026/1000) from the Application event log,
@@ -161,6 +176,10 @@ jobs:
           cp "${RUNNER_TEMP}/m365hub-gateway-test/serve-test.log" test-evidence/ 2>/dev/null || true
           cp "${RUNNER_TEMP}/m365hub-account-chat-win-summary.txt" test-evidence/ 2>/dev/null || true
           cp "${RUNNER_TEMP}/m365hub-real-account-pkce-win-summary.txt" test-evidence/ 2>/dev/null || true
+          cp "${RUNNER_TEMP}/m365hub-codex-win-summary.txt" test-evidence/ 2>/dev/null || true
+          cp "${RUNNER_TEMP}/codex1.log" test-evidence/ 2>/dev/null || true
+          cp "${RUNNER_TEMP}/codex2.log" test-evidence/ 2>/dev/null || true
+          cp "${RUNNER_TEMP}/codex-win-test/hello.txt" test-evidence/codex-hello.txt 2>/dev/null || true
           cp "$LOCALAPPDATA/M365Hub/serve-windows.log" test-evidence/serve-windows-app.log 2>/dev/null || true
           ls -la test-evidence/
 

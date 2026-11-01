@@ -15,6 +15,12 @@
 # expires 10 minutes after the start, so the poll runs at most 9 minutes.
 # The comment carrying the code is deleted right after use.
 #
+# The gateway is left RUNNING when this script ends: the CodeX
+# tool-call step runs next against this same gateway (it needs the
+# account this step just added), so this script writes the gateway PID
+# to $RUNNER_TEMP/m365hub-real-account-pkce-win.pid and the CodeX
+# script stops the gateway when it is done.
+#
 # Usage: scripts/test-real-account-pkce-win.sh (run from the repo root)
 # Exit 0 only if the account is added and the chat returns real content.
 set -u
@@ -196,9 +202,12 @@ else
   fail "chat content empty: $(cat "$TMP/r8.json" | head -c 500)"
 fi
 
-echo "== stop the gateway + close the issue =="
-kill "$GW_PID" 2>/dev/null || taskkill //F //PID "$GW_PID" 2>/dev/null || true
-sleep 2
+echo "== hand the gateway off to the CodeX step + close the issue =="
+# Do NOT kill the gateway here: the CodeX tool-call step runs next
+# against this same gateway and its freshly added account. Record the
+# PID so that step can stop the gateway when it is done.
+echo "$GW_PID" > "$TMP/m365hub-real-account-pkce-win.pid"
+pass "gateway left running for the CodeX step (pid $GW_PID)"
 if [ -n "$ISSUE_NUM" ] && [ -n "${GITHUB_TOKEN:-}" ]; then
   gh_api "/issues/$ISSUE_NUM" -X PATCH -d '{"state":"closed"}' >/dev/null 2>&1 || true
 fi
