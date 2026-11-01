@@ -58,7 +58,8 @@ jobs:
           mkdir -p x64 arm64
           cp -r "$X64"/* x64/
           cp -r "$ARM64"/* arm64/
-          cp README-winui.txt .
+          # README-winui.txt is already in the checkout (repo root), so it
+          # goes straight into the zip; copying it onto itself fails.
           test -f x64/M365Hub.App.exe
           test -f arm64/M365Hub.App.exe
           7z a -tzip "$ZIP" README-winui.txt x64 arm64
