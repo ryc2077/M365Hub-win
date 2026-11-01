@@ -17,11 +17,20 @@ ADMIN_PASS="ci-test-pass-20261101"
 FAIL=0
 : > "$SUMMARY"
 PY="$(command -v python3 || command -v python || echo python3)"
+# Fail loudly if there is no working python: a silent jget would fail
+# every JSON check while the HTTP-code checks still pass, which looks
+# like a gateway bug but is only a missing interpreter.
+"$PY" -c "import sys; sys.exit(0)" 2>/dev/null \
+  || { echo "FATAL: no working python ($PY) for the JSON checks"; exit 1; }
 
 note() { echo "$1" | tee -a "$SUMMARY"; }
 fail() { FAIL=1; note "FAIL: $1"; }
 pass() { note "PASS: $1"; }
-jget() { "$PY" -c "import json,sys; d=json.load(open('$1')); v=d$2; print(v if not isinstance(v,bool) else str(v).lower())" 2>/dev/null; }
+# Read one JSON value from a file. The path and the key expression travel
+# as argv, never interpolated into the -c string: on Windows the temp dir
+# is D:\a\_temp, and open('D:\a\_temp\w1.json') would turn \a into a bell
+# character and fail every check while the HTTP-code checks still pass.
+jget() { "$PY" -c 'import json,sys; d=json.load(open(sys.argv[1])); v=eval("d"+sys.argv[2]); print(v if not isinstance(v,bool) else str(v).lower())' "$1" "$2" 2>/dev/null; }
 
 echo "== start the gateway (fresh data dir) =="
 rm -f "$JAR"
