@@ -58,7 +58,7 @@ jobs:
       - name: App launch test
         shell: powershell
         run: |
-          $exe = "src/M365Hub.App/bin/Release/net8.0-windows10.0.19041.0/win-x64/M365Hub.App.exe"
+          $exe = "src/M365Hub.App/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/M365Hub.App.exe"
           if (-not (Test-Path $exe)) { throw "app exe not found: $exe" }
           Remove-Item -Recurse -Force "$env:LOCALAPPDATA/M365Hub" -ErrorAction SilentlyContinue
           $p = Start-Process -FilePath $exe -PassThru
@@ -121,6 +121,6 @@ jobs:
         with:
           name: M365Hub-windows
           path: |
-            src/M365Hub.App/bin/Release/net8.0-windows10.0.19041.0/win-x64/
-            src/M365Hub.App/bin/Release/net8.0-windows10.0.19041.0/win-arm64/
+            src/M365Hub.App/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/
+            src/M365Hub.App/bin/ARM64/Release/net8.0-windows10.0.19041.0/win-arm64/
             test-evidence/

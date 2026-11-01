@@ -28,14 +28,17 @@ x64 与 ARM64
 
 构建
 ----
-双击 build.bat（按本机 CPU 自动选 win-x64 或 win-arm64），或手动：
+双击 build.bat（按本机 CPU 自动选 win-x64 或 win-arm64），或手动用
+Visual Studio 的 MSBuild（WinUI 3 资源打包要 VS 自带的 Pri 任务，
+dotnet build 单独编会报 MSB4062）：
 
-    dotnet build src\M365Hub.App\M365Hub.App.csproj -c Release -r win-x64
-    dotnet build src\M365Hub.App\M365Hub.App.csproj -c Release -r win-arm64
+    msbuild src\M365Hub.App\M365Hub.App.csproj -restore -p:Configuration=Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64
+    msbuild src\M365Hub.App\M365Hub.App.csproj -restore -p:Configuration=Release -p:Platform=ARM64 -p:RuntimeIdentifier=win-arm64
 
-产物在 src\M365Hub.App\bin\Release\net8.0-windows10.0.19041.0\win-x64\
-（或 win-arm64\），M365Hub.App.exe，旁边会自动带上两个网关 exe。
-直接双击 M365Hub.App.exe 运行。
+产物在 src\M365Hub.App\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\
+（或 bin\ARM64\Release\...\win-arm64\），M365Hub.App.exe，旁边会自动
+带上两个网关 exe。直接双击 M365Hub.App.exe 运行。
+（用 dotnet build 时产物在 bin\Release\...，没有 x64/ARM64 这一层。）
 
 首次运行
 --------

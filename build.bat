@@ -16,9 +16,11 @@ if exist "%VSWHERE%" (
 if defined MSBUILD (
   echo Using Visual Studio MSBuild: %MSBUILD%
   "%MSBUILD%" src\M365Hub.App\M365Hub.App.csproj -restore -p:Configuration=Release -p:Platform=%PLAT% -p:RuntimeIdentifier=%RID%
+  set "OUTDIR=src\M365Hub.App\bin\%PLAT%\Release\net8.0-windows10.0.19041.0\%RID%"
 ) else (
   echo Visual Studio not found, trying dotnet build ...
   dotnet build src\M365Hub.App\M365Hub.App.csproj -c Release -r %RID%
+  set "OUTDIR=src\M365Hub.App\bin\Release\net8.0-windows10.0.19041.0\%RID%"
 )
 if errorlevel 1 (
   echo Build failed. Check the error above.
@@ -26,5 +28,5 @@ if errorlevel 1 (
   exit /b 1
 )
 echo.
-echo OK. Run: src\M365Hub.App\bin\Release\net8.0-windows10.0.19041.0\%RID%\M365Hub.App.exe
+echo OK. Run: %OUTDIR%\M365Hub.App.exe
 pause
