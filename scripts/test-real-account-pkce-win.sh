@@ -46,7 +46,7 @@ pass() { note "PASS: $1"; }
 # as argv, never interpolated into the -c string: on Windows the temp dir
 # is D:\a\_temp, and open('D:\a\_temp\r4.json') would turn \a into a bell
 # character and fail every check while the HTTP-code checks still pass.
-jget() { "$PY" -c 'import json,sys; d=json.load(open(sys.argv[1])); v=eval("d"+sys.argv[2]); print(v if not isinstance(v,bool) else str(v).lower())' "$1" "$2" 2>/dev/null; }
+jget() { "$PY" -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); v=eval("d"+sys.argv[2]); print(v if not isinstance(v,bool) else str(v).lower())' "$1" "$2" 2>/dev/null; }
 gh_api() { curl -s -H "Authorization: Bearer ${GITHUB_TOKEN:?no GITHUB_TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO$1" "${@:2}"; }
 
 echo "== start the gateway (fresh data dir) =="
