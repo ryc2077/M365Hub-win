@@ -1,0 +1,78 @@
+name: Release Windows app
+
+# Publish the prebuilt app from a green build run as a GitHub release.
+# Trigger it from the Actions tab (or the API) with the version to
+# release; it takes the app from the latest successful build run (or the
+# run id given), packs the x64/arm64 outputs with README-winui.txt and
+# uploads the zip. If the release for the tag already exists, only the
+# asset is uploaded (replacing a same-named one).
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, e.g. 1.0.3"
+        required: true
+        default: "1.0.3"
+      run_id:
+        description: "Build run id to take the app from (empty = latest successful build run)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the built app
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -e
+          RUN_ID="${{ inputs.run_id }}"
+          if [ -z "$RUN_ID" ]; then
+            RUN_ID=$(gh api "repos/${{ github.repository }}/actions/workflows/build.yml/runs?status=success&per_page=1" --jq '.workflow_runs[0].id')
+          fi
+          echo "Using build run $RUN_ID"
+          echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+          mkdir -p app-download
+          gh run download "$RUN_ID" --name M365Hub-windows --dir app-download
+          ls "app-download/src/M365Hub.App/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/M365Hub.App.exe"
+          ls "app-download/src/M365Hub.App/bin/ARM64/Release/net8.0-windows10.0.19041.0/win-arm64/M365Hub.App.exe"
+
+      - name: Repackage and publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -e
+          VERSION="${{ inputs.version }}"
+          ZIP="M365Hub-winui-${VERSION}.zip"
+          X64="app-download/src/M365Hub.App/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64"
+          ARM64="app-download/src/M365Hub.App/bin/ARM64/Release/net8.0-windows10.0.19041.0/win-arm64"
+          mkdir -p x64 arm64
+          cp -r "$X64"/* x64/
+          cp -r "$ARM64"/* arm64/
+          cp README-winui.txt .
+          test -f x64/M365Hub.App.exe
+          test -f arm64/M365Hub.App.exe
+          7z a -tzip "$ZIP" README-winui.txt x64 arm64
+          ls -la "$ZIP"
+          TAG="v${VERSION}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; uploading the asset"
+            gh release upload "$TAG" "$ZIP" --clobber
+          else
+            gh release create "$TAG" "$ZIP" \
+              --title "M365Hub Windows ${VERSION}" \
+              --notes "Prebuilt Windows app from CI build run ${RUN_ID} (all green: Core tests, WinUI x64/ARM64 build, gateway cold start, app launch, account add and chat, real-account PKCE + real Chinese chat, CodeX tool calls).
+
+          Unzip and double-click M365Hub.App.exe in x64 (Intel/AMD) or arm64 (ARM64). Requires .NET 8 and Windows App Runtime 1.6.
+          First login: admin password is admin123 (forced change on first login)."
+          fi
+          echo "Release: $(gh release view "$TAG" --json url --jq .url)"
