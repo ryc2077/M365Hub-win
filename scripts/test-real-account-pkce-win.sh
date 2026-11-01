@@ -31,6 +31,11 @@ PY="$(command -v python3 || command -v python || echo python3)"
 # Fail loudly if there is no working python: a silent jget would fail
 # every JSON check while the HTTP-code checks still pass, which looks
 # like a gateway bug but is only a missing interpreter.
+# Force UTF-8 for every python call in this script: Git Bash on the
+# Windows runner runs under a C locale, so python's stdout defaults to
+# ASCII and printing a Chinese chat reply raises UnicodeEncodeError,
+# which makes jget return empty even though the content is there.
+export PYTHONIOENCODING=utf-8
 "$PY" -c "import sys; sys.exit(0)" 2>/dev/null \
   || { echo "FATAL: no working python ($PY) for the JSON checks"; exit 1; }
 
@@ -173,9 +178,14 @@ curl -s -m 10 -b "$JAR" "$BASE/api/auth/status" -o "$TMP/r7.json"
   && pass "auth status count=1" || fail "auth status: $(cat "$TMP/r7.json")"
 
 echo "== real chat with the account =="
+# Write the request body with python (guaranteed UTF-8) and send the file:
+# passing the Chinese message through the Git Bash command line mangled
+# it into "??,??????????" before it reached the gateway (run 13), while
+# the identical message worked from macOS.
+"$PY" -c 'import json,sys; open(sys.argv[1],"w",encoding="utf-8").write(json.dumps({"model":"gpt-6.1-sol-reasoning","messages":[{"role":"user","content":"你好，请用一句话介绍你自己"}],"attachments":[]}, ensure_ascii=False))' "$TMP/r8body.json"
 curl -s -m 180 -b "$JAR" -X POST "$BASE/api/chat" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"gpt-6.1-sol-reasoning","messages":[{"role":"user","content":"你好，请用一句话介绍你自己"}],"attachments":[]}' \
+  --data-binary "@$TMP/r8body.json" \
   -o "$TMP/r8.json" -w "%{http_code}" > "$TMP/r8.code"
 [ "$(cat "$TMP/r8.code")" = "200" ] && pass "chat returned http 200" || fail "chat http $(cat "$TMP/r8.code"): $(cat "$TMP/r8.json" | head -c 500)"
 CONTENT="$(jget "$TMP/r8.json" "['content']")"
