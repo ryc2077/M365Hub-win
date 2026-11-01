@@ -137,6 +137,22 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash scripts/test-real-account-pkce-win.sh
 
+      # Crash diagnostics: the app-crash.log the app writes on an
+      # unhandled exception, plus the .NET Runtime / Application Error
+      # entries (event IDs 1026/1000) from the Application event log,
+      # which carry the exception message and stack trace.
+      - name: Collect crash diagnostics
+        if: always()
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force test-evidence | Out-Null
+          Copy-Item "$env:LOCALAPPDATA/M365Hub/app-crash.log" test-evidence/app-crash.log -ErrorAction SilentlyContinue
+          Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=(Get-Date).AddMinutes(-15)} -ErrorAction SilentlyContinue |
+            Where-Object { $_.Id -eq 1000 -or $_.Id -eq 1026 } |
+            Select-Object -First 5 TimeCreated, Id, ProviderName, Message |
+            Format-List | Out-File -FilePath test-evidence/eventlog.txt -Encoding utf8
+          Get-Content test-evidence/eventlog.txt -ErrorAction SilentlyContinue | Select-Object -First 80
+
       - name: Collect test evidence
         if: always()
         shell: bash

@@ -16,7 +16,8 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        SystemBackdrop = new MicaBackdrop();
+        // Mica 在部分系统上不受支持（如 Windows Server），失败时用默认背景。
+        try { SystemBackdrop = new MicaBackdrop(); } catch { }
         Title = "M365Hub";
         try { AppWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "app.ico")); } catch { /* 图标缺失时不影响启动 */ }
         ApplyTheme();
