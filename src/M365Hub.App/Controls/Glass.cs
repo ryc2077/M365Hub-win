@@ -42,7 +42,7 @@ public static class Glass
                 ? Color.FromArgb(0x59, 255, 255, 255)
                 : Color.FromArgb(0x40, 0, 0, 0));
             b.Foreground = new SolidColorBrush(theme == ElementTheme.Dark
-                ? Colors.White : Color.FromArgb(255, 26, 26, 26));
+                ? Microsoft.UI.Colors.White : Color.FromArgb(255, 26, 26, 26));
         }
         b.ActualThemeChanged += (_, _) => Refresh();
         b.Loaded += (_, _) => Refresh();

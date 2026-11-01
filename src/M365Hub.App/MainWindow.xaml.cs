@@ -22,7 +22,7 @@ public sealed partial class MainWindow : Window
         ApplyTheme();
         Glass.ApplyButton(NewChatBtn, 20);
         Glass.ApplyButton(ThemeBtn, 20);
-        Loaded += (_, _) => { if (!_started) { _started = true; _ = StartupAsync(); } };
+        RootGrid.Loaded += (_, _) => { if (!_started) { _started = true; _ = StartupAsync(); } };
     }
 
     public void ApplyTheme()

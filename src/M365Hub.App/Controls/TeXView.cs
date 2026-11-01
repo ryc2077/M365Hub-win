@@ -27,7 +27,7 @@ public sealed class XamlMeasurer : ITextMeasurer
     {
         _tb.Text = text;
         _tb.FontSize = sizePx;
-        _tb.FontStyle = style == TeXRenderer.StyleItalic ? FontStyle.Italic : FontStyle.Normal;
+        _tb.FontStyle = style == TeXRenderer.StyleItalic ? Windows.UI.Text.FontStyle.Italic : Windows.UI.Text.FontStyle.Normal;
         _tb.FontWeight = style == TeXRenderer.StyleBold ? FontWeights.Bold : FontWeights.Normal;
         _tb.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
         return (float)_tb.DesiredSize.Width;
@@ -63,7 +63,7 @@ public sealed class XamlCanvas : ICanvas
             Text = text,
             FontFamily = new FontFamily("Cambria Math"),
             FontSize = effSize,
-            FontStyle = style == TeXRenderer.StyleItalic ? FontStyle.Italic : FontStyle.Normal,
+            FontStyle = style == TeXRenderer.StyleItalic ? Windows.UI.Text.FontStyle.Italic : Windows.UI.Text.FontStyle.Normal,
             FontWeight = style == TeXRenderer.StyleBold ? FontWeights.Bold : FontWeights.Normal,
             Foreground = new SolidColorBrush(ToColor(color)),
         };
@@ -108,7 +108,7 @@ public sealed class XamlCanvas : ICanvas
         {
             Width = w * _sx,
             Height = h * _sy,
-            Fill = new SolidColorBrush(Colors.Transparent),
+            Fill = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
             Stroke = new SolidColorBrush(ToColor(color)),
             StrokeThickness = strokeWidth * ((_sx + _sy) / 2),
         };

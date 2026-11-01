@@ -105,7 +105,9 @@ public sealed partial class ChatPage : UserControl
         inputBar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         inputBar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         inputBar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var plus = new GlassButton("＋", (_, _) => ShowAttachMenu(plus));
+        var plus = new GlassButton();
+        plus.Content = "＋";
+        plus.Click += (_, _) => ShowAttachMenu(plus);
         Grid.SetColumn(plus, 0);
         Grid.SetColumn(_input, 1);
         _input.Margin = new Thickness(8, 0, 8, 0);
@@ -344,7 +346,7 @@ public sealed partial class ChatPage : UserControl
                     transform.ScaledWidth, transform.ScaledHeight, 96, 96, pixels.DetachPixelData());
                 var quality = new BitmapPropertySet
                 {
-                    { "ImageQuality", new BitmapTypedValue(0.85f, PropertyType.Single) },
+                    { "ImageQuality", new BitmapTypedValue(0.85f, BitmapPropertyType.Single) },
                 };
                 await enc.BitmapProperties.SetPropertiesAsync(quality);
                 await enc.FlushAsync();
