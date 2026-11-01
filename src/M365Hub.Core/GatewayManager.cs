@@ -62,6 +62,7 @@ public sealed class GatewayManager
             var psi = new ProcessStartInfo
             {
                 FileName = exe,
+                Arguments = "serve",
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
