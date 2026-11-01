@@ -53,13 +53,37 @@ jobs:
         shell: bash
         run: bash scripts/test-gateway-win.sh
 
+      # The unpackaged WinUI app needs the Windows App Runtime
+      # framework package on the machine; a clean runner may not have
+      # it, and then the app shows a "requires the Windows App Runtime"
+      # dialog (or dies) instead of starting its gateway. Install it
+      # when it is missing.
+      - name: Install Windows App Runtime if missing
+        shell: powershell
+        run: |
+          $pkg = Get-AppxPackage -Name "Microsoft.WindowsAppRuntime.1.6" -AllUsers
+          if ($pkg) {
+            Write-Host "Windows App Runtime already installed: $($pkg.Version)"
+          } else {
+            Write-Host "Windows App Runtime missing, installing..."
+            Invoke-WebRequest -Uri "https://aka.ms/windowsappsdk/1.6/latest/windowsappruntimeinstall-x64.exe" -OutFile "$env:RUNNER_TEMP\war-install.exe"
+            Start-Process -FilePath "$env:RUNNER_TEMP\war-install.exe" -ArgumentList "--quiet" -Wait
+            Get-AppxPackage -Name "Microsoft.WindowsAppRuntime.1.6" -AllUsers | Select-Object Name, Version
+          }
+
       # Launch the built WinUI app and prove its gateway comes up, the
-      # way the Mac CI does with the app launch test.
+      # way the Mac CI does with the app launch test. Diagnostics on
+      # failure: whether the app process is still alive and its exit
+      # code, the gateway log, and a screenshot of the desktop (a
+      # "requires the Windows App Runtime" dialog shows up there).
       - name: App launch test
         shell: powershell
         run: |
+          New-Item -ItemType Directory -Force test-evidence | Out-Null
           $exe = "src/M365Hub.App/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/M365Hub.App.exe"
           if (-not (Test-Path $exe)) { throw "app exe not found: $exe" }
+          Write-Host "Windows App Runtime: $((Get-AppxPackage -Name 'Microsoft.WindowsAppRuntime.1.6' -AllUsers | Select-Object -First 1).Version)"
+          Write-Host "gateway exe next to the app: $(Test-Path (Join-Path (Split-Path $exe) 'm365hub.exe'))"
           Remove-Item -Recurse -Force "$env:LOCALAPPDATA/M365Hub" -ErrorAction SilentlyContinue
           $p = Start-Process -FilePath $exe -PassThru
           Write-Host "app pid: $($p.Id)"
@@ -71,7 +95,16 @@ jobs:
             Start-Sleep -Seconds 1
           }
           Write-Host "gateway up: $up"
+          $p.Refresh()
+          Write-Host "app process alive: $(-not $p.HasExited), exit code: $($p.ExitCode)"
           Get-Content "$env:LOCALAPPDATA/M365Hub/serve-windows.log" -ErrorAction SilentlyContinue | Select-Object -Last 20
+          Add-Type -AssemblyName System.Windows.Forms
+          Add-Type -AssemblyName System.Drawing
+          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+          $bmp.Save("test-evidence/app-launch.png", [System.Drawing.Imaging.ImageFormat]::Png)
+          Write-Host "screenshot saved: test-evidence/app-launch.png ($($bounds.Width)x$($bounds.Height))"
           Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
           Get-Process m365hub -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
           if (-not $up) { throw "APP-LAUNCH-TEST: FAIL - app gateway never answered" }
