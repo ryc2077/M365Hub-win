@@ -31,11 +31,22 @@ jobs:
       - name: Core tests
         run: dotnet run --project tests/M365Hub.Tests -c Release
 
+      # WinUI 3 resource packaging (the PriGen step) needs Visual
+      # Studio's MSBuild: the Pri tasks DLL ships with Visual Studio,
+      # not with the .NET SDK, so `dotnet build` fails with MSB4062
+      # ("ExpandPriContent task could not be loaded") on a plain SDK
+      # install. Use the VS MSBuild that setup-msbuild puts on PATH.
+      - name: Setup MSBuild (Visual Studio)
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore WinUI app
+        run: dotnet restore src/M365Hub.App/M365Hub.App.csproj
+
       - name: Build WinUI app (x64)
-        run: dotnet build src/M365Hub.App/M365Hub.App.csproj -c Release -r win-x64
+        run: msbuild src/M365Hub.App/M365Hub.App.csproj -p:Configuration=Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64
 
       - name: Build WinUI app (ARM64)
-        run: dotnet build src/M365Hub.App/M365Hub.App.csproj -c Release -r win-arm64
+        run: msbuild src/M365Hub.App/M365Hub.App.csproj -p:Configuration=Release -p:Platform=ARM64 -p:RuntimeIdentifier=win-arm64
 
       # Gateway cold start, through the exact binary the app ships.
       - name: Gateway cold-start test
