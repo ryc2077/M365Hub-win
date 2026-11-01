@@ -19,22 +19,16 @@
 # Usage: scripts/test-codex-win.sh (run from the repo root)
 # Exit 0 only if both tool-call rounds really wrote the files.
 #
-# Approval mode (run 17 finding): Codex 0.166.0's --approve-for-me
-# routes every command through an automatic "guardian" review, and that
-# review fails against this gateway ("guardian review completed without
-# an assessment payload" - the model issued the right command but it was
-# declined, so hello.txt was never created). approval_policy="never"
-# never asks for approval, so no guardian review is triggered, and the
-# sandbox stays on (workspace-write) - commands still run sandboxed.
-# This is the supported non-interactive mode. The
-# --dangerously-bypass-approvals-and-sandbox flag is never used here: it
-# also disables sandboxing.
-#
-# Sandbox mode (run 18 finding): -s workspace-write alone left the
-# sandbox read-only on the Windows runner, so writes were "blocked by
-# policy" even with approval: never. The sandbox mode is therefore also
-# set in config.toml below (belt and braces); the run fails fast if the
-# session header still does not show workspace-write.
+# YOLO mode (user instruction; run 19 was cancelled before its PKCE
+# step). Run codex with --dangerously-bypass-approvals-and-sandbox:
+# approvals never and sandbox danger-full-access. The workspace-write
+# sandbox does not work on the Windows runner (run 18: -s
+# workspace-write left it read-only, writes "blocked by policy"; run
+# 19's config sandbox_mode was never given a chance). The runner is an
+# ephemeral throwaway VM with no user data, so YOLO is contained here.
+# Do NOT combine this flag with -c approval_policy or -s - the flag
+# already sets both knobs. Do NOT use --approve-for-me here - its
+# guardian review fails against this gateway (run 17).
 set -u
 BASE="http://127.0.0.1:8230"
 TMP="${RUNNER_TEMP:-/tmp}"
@@ -111,17 +105,14 @@ if ! command -v codex >/dev/null 2>&1; then
 fi
 CODEX_VER="$(codex --version 2>&1 | head -n 1)"
 [ -n "$CODEX_VER" ] && pass "codex $CODEX_VER" || fail "codex binary not found after install"
-# Approval mode: use the -c config override to set
-# approval_policy="never" (verified locally against codex-cli 0.166.0:
-# the session header prints "approval: never" and the sandbox stays
-# workspace-write). Do NOT use --approve-for-me here - its guardian
-# review fails against this gateway (run 17) - and never use
-# --dangerously-bypass-approvals-and-sandbox.
+# YOLO mode: the flag sets both knobs (approvals never, sandbox
+# danger-full-access). Verify it exists in this codex build instead of
+# guessing.
 HELP="$(codex exec --help 2>&1 || true)"
 APPROVE=""
-if echo "$HELP" | grep -q -- "-c, --config"; then APPROVE="-c approval_policy=never -s workspace-write";
-else fail "codex exec has no -c/--config override for approval_policy"; fi
-[ -n "$APPROVE" ] && pass "approval mode: approval_policy=never, sandbox workspace-write"
+if echo "$HELP" | grep -q "dangerously-bypass-approvals-and-sandbox"; then APPROVE="--dangerously-bypass-approvals-and-sandbox";
+else fail "codex exec has no --dangerously-bypass-approvals-and-sandbox flag"; fi
+[ -n "$APPROVE" ] && pass "approval mode: YOLO (--dangerously-bypass-approvals-and-sandbox)"
 SKIP=""
 echo "$HELP" | grep -q "skip-git-repo-check" && SKIP="--skip-git-repo-check"
 
@@ -130,7 +121,6 @@ mkdir -p "$HOME/.codex"
 cat > "$HOME/.codex/config.toml" <<'EOF'
 model_provider = "m365hub"
 model = "gpt-4-auto"
-sandbox_mode = "workspace-write"
 [model_providers.m365hub]
 name = "m365hub"
 base_url = "http://127.0.0.1:8230/v1"
@@ -153,11 +143,11 @@ echo "codex round 1 exit: $?" | tee -a "$SUMMARY"
 grep -q "approval: never" "$TMP/codex1.log" \
   && pass "codex ran with approval: never" \
   || fail "codex did not run with approval: never (guardian path may be back)"
-# The session header must also show a workspace-write sandbox, or every
-# write is "blocked by policy" the way run 18 was.
-grep -q "sandbox: workspace-write" "$TMP/codex1.log" \
-  && pass "codex ran with sandbox: workspace-write" \
-  || fail "codex sandbox is not workspace-write (writes will be blocked by policy)"
+# YOLO sets the sandbox to danger-full-access; if the header shows
+# anything else, the flag did not take effect.
+grep -q "sandbox: danger-full-access" "$TMP/codex1.log" \
+  && pass "codex ran with sandbox: danger-full-access (YOLO)" \
+  || fail "codex sandbox is not danger-full-access (YOLO flag may not have taken effect)"
 if [ -f "$WORKDIR/hello.txt" ]; then
   CONTENT="$(cat "$WORKDIR/hello.txt")"
   echo "hello.txt: [$CONTENT]" | tee -a "$SUMMARY"
