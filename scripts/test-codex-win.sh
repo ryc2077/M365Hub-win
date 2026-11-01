@@ -18,6 +18,17 @@
 #
 # Usage: scripts/test-codex-win.sh (run from the repo root)
 # Exit 0 only if both tool-call rounds really wrote the files.
+#
+# Approval mode (run 17 finding): Codex 0.166.0's --approve-for-me
+# routes every command through an automatic "guardian" review, and that
+# review fails against this gateway ("guardian review completed without
+# an assessment payload" - the model issued the right command but it was
+# declined, so hello.txt was never created). approval_policy="never"
+# never asks for approval, so no guardian review is triggered, and the
+# sandbox stays on (workspace-write) - commands still run sandboxed.
+# This is the supported non-interactive mode. The
+# --dangerously-bypass-approvals-and-sandbox flag is never used here: it
+# also disables sandboxing.
 set -u
 BASE="http://127.0.0.1:8230"
 TMP="${RUNNER_TEMP:-/tmp}"
@@ -94,15 +105,17 @@ if ! command -v codex >/dev/null 2>&1; then
 fi
 CODEX_VER="$(codex --version 2>&1 | head -n 1)"
 [ -n "$CODEX_VER" ] && pass "codex $CODEX_VER" || fail "codex binary not found after install"
-# The approval flag differs between Codex releases: the sandbox-verified
-# 0.164.0 uses --approve-for-me, newer ones use --full-auto. Detect it
-# from the installed binary instead of guessing.
+# Approval mode: use the -c config override to set
+# approval_policy="never" (verified locally against codex-cli 0.166.0:
+# the session header prints "approval: never" and the sandbox stays
+# workspace-write). Do NOT use --approve-for-me here - its guardian
+# review fails against this gateway (run 17) - and never use
+# --dangerously-bypass-approvals-and-sandbox.
 HELP="$(codex exec --help 2>&1 || true)"
 APPROVE=""
-if echo "$HELP" | grep -q "approve-for-me"; then APPROVE="--approve-for-me";
-elif echo "$HELP" | grep -q "full-auto"; then APPROVE="--full-auto";
-else fail "codex exec has neither --approve-for-me nor --full-auto"; fi
-[ -n "$APPROVE" ] && pass "approval flag: $APPROVE"
+if echo "$HELP" | grep -q -- "-c, --config"; then APPROVE="-c approval_policy=never -s workspace-write";
+else fail "codex exec has no -c/--config override for approval_policy"; fi
+[ -n "$APPROVE" ] && pass "approval mode: approval_policy=never, sandbox workspace-write"
 SKIP=""
 echo "$HELP" | grep -q "skip-git-repo-check" && SKIP="--skip-git-repo-check"
 
@@ -128,6 +141,11 @@ cd "$WORKDIR" && git init -q 2>/dev/null || true
 # (run 13), while the same Chinese message worked from macOS.
 timeout 300 codex exec $APPROVE $SKIP "Create a file named hello.txt in the current directory containing exactly one line: codex-via-m365hub-win-ok. Do not write anything else into the file." < /dev/null > "$TMP/codex1.log" 2>&1
 echo "codex round 1 exit: $?" | tee -a "$SUMMARY"
+# The session header must show approval: never, or the guardian path
+# is back and the run will fail the same way run 17 did.
+grep -q "approval: never" "$TMP/codex1.log" \
+  && pass "codex ran with approval: never" \
+  || fail "codex did not run with approval: never (guardian path may be back)"
 if [ -f "$WORKDIR/hello.txt" ]; then
   CONTENT="$(cat "$WORKDIR/hello.txt")"
   echo "hello.txt: [$CONTENT]" | tee -a "$SUMMARY"
