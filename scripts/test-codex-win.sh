@@ -163,7 +163,12 @@ echo "== CodeX tool call, round 2: append + cat =="
 cd "$WORKDIR"
 timeout 300 codex exec $APPROVE $SKIP "Append a second line, second-line, to hello.txt in the current directory, then print the file contents with cat." < /dev/null > "$TMP/codex2.log" 2>&1
 echo "codex round 2 exit: $?" | tee -a "$SUMMARY"
-if grep -qx "codex-via-m365hub-win-ok" "$WORKDIR/hello.txt" && grep -qx "second-line" "$WORKDIR/hello.txt"; then
+# Substring match on purpose: round 1's file has no trailing newline
+# (the model used -NoNewline to satisfy "exactly one line"), so
+# Add-Content glues the second line onto the same line and the file
+# reads "codex-via-m365hub-win-oksecond-line". Whole-line (-x) matching
+# would fail that even though the append really happened (run 20).
+if grep -q "codex-via-m365hub-win-ok" "$WORKDIR/hello.txt" && grep -q "second-line" "$WORKDIR/hello.txt"; then
   pass "round 2: second line appended, both lines present"
   echo "hello.txt now:" | tee -a "$SUMMARY"
   cat "$WORKDIR/hello.txt" | tee -a "$SUMMARY"
