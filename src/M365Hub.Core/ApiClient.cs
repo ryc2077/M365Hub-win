@@ -60,6 +60,8 @@ public sealed class ApiClient
     /// <summary>Readiness probe: 2s timeouts so a hung gateway cannot stall the poll loop.</summary>
     public Task<JsonObject> GetFastAsync(string path) => CallAsync("GET", path, null, 2, 2);
     public Task<JsonObject> PostAsync(string path, JsonNode? body) => CallAsync("POST", path, body, 15, 120);
+    /// <summary>Admin login with a 10s total timeout: a hung gateway must surface an error instead of looking dead.</summary>
+    public Task<JsonObject> PostLoginAsync(string path, JsonNode? body) => CallAsync("POST", path, body, 5, 5);
 
     private async Task<JsonObject> CallAsync(string method, string path, JsonNode? body,
         int connectSeconds, int readSeconds)

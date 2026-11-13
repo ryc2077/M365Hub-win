@@ -182,8 +182,11 @@ public sealed partial class ChatPage : UserControl
             foreach (var m in models) _modelBox.Items.Add(m.Id);
             string want = _state.ChatModel;
             if (want.Length == 0)
-                want = models.Any(m => m.Id == "gpt-6.1-sol-reasoning") ? "gpt-6.1-sol-reasoning"
-                    : models.Any(m => m.Id == "gpt-6.1-sol") ? "gpt-6.1-sol"
+                // Default is gpt-5.6-reasoning (6.x is blocked by a Premium
+                // license check on basic Copilot); a previously saved model
+                // choice still wins and must be switched once by hand.
+                want = models.Any(m => m.Id == "gpt-5.6-reasoning") ? "gpt-5.6-reasoning"
+                    : models.Any(m => m.Id == "gpt-5.6-sol") ? "gpt-5.6-sol"
                     : models.Any(m => m.Id == "gpt-4-auto") ? "gpt-4-auto"
                     : models.Count > 0 ? models[0].Id : "";
             _model = want;

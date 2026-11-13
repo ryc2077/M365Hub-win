@@ -54,7 +54,9 @@ public sealed partial class MainWindow : Window
         bool ready = await State.Gateway.WaitReadyAsync(State.Api, progress);
         if (!ready)
         {
-            ShowStartupFailure("本地网关 60 秒内没有应答。可能是被系统杀掉，或端口 8230 被占用。");
+            ShowStartupFailure(State.Gateway.OwnedGatewayExited
+                ? "自己拉起的网关已退出（可能是端口 8230 被占用）。点“查看网关日志”看最后一行报错。"
+                : "本地网关 60 秒内没有应答。可能是被系统杀掉，或端口 8230 被占用。");
             return;
         }
         // Session check: logged in -> chat, otherwise login page.

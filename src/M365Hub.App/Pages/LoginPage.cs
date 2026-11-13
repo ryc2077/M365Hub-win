@@ -24,27 +24,36 @@ public sealed class LoginPage : PageBase
         Body.Children.Add(_pw);
         Body.Children.Add(_newPw);
         Body.Children.Add(_hint);
-        Btn("登录", async (_, _) => await LoginAsync());
+        _loginBtn = Btn("登录", async (_, _) => await LoginAsync());
     }
 
     private bool _needsChange;
+    private bool _busy;
+    private readonly GlassButton _loginBtn;
 
     private async Task LoginAsync()
     {
+        // One login attempt at a time, with a visible busy state: the
+        // login call has a 10s timeout, and without this the button
+        // looked dead while the request hung (Mac 1.0.26, same bug).
+        if (_busy) return;
         ClearErr();
         string pw = _pw.Password;
         if (pw.Length == 0) { ShowErr("请输入密码。"); return; }
+        _busy = true;
+        _loginBtn.IsEnabled = false;
+        _hint.Text = "正在登录…";
         try
         {
             if (_needsChange)
             {
                 if (_newPw.Password.Length == 0) { ShowErr("请输入新密码。"); return; }
-                await State.Api.PostAsync("/api/admin/password",
+                await State.Api.PostLoginAsync("/api/admin/password",
                     new JsonObject { ["current"] = pw, ["next"] = _newPw.Password });
                 Win.Navigate("chat");
                 return;
             }
-            var d = await State.Api.PostAsync("/api/admin/login",
+            var d = await State.Api.PostLoginAsync("/api/admin/login",
                 new JsonObject { ["password"] = pw });
             if (d["must_change_password"]?.GetValue<bool>() == true)
             {
@@ -58,6 +67,12 @@ public sealed class LoginPage : PageBase
         catch (Exception e)
         {
             ShowErr(e.Message);
+        }
+        finally
+        {
+            _busy = false;
+            _loginBtn.IsEnabled = true;
+            if (_hint.Text == "正在登录…") _hint.Text = "";
         }
     }
 }

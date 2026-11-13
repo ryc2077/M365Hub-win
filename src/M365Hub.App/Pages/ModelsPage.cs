@@ -1,5 +1,6 @@
 // Model list (read-only; the registry is static in the gateway).
-// The chat default is gpt-6.1-sol-reasoning.
+// The chat default is gpt-5.6-reasoning (6.x is blocked by a Premium
+// license check on basic Copilot).
 using M365Hub.Core;
 
 namespace M365Hub.App.Pages;
@@ -11,7 +12,7 @@ public sealed class ModelsPage : PageBase
         Title("模型");
         Body.Children.Add(new Microsoft.UI.Xaml.Controls.TextBlock
         {
-            Text = "聊天默认模型：gpt-6.1-sol-reasoning（可在聊天页顶栏切换）。",
+            Text = "聊天默认模型：gpt-5.6-reasoning（可在聊天页顶栏切换）。",
             TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
         });
         _ = LoadAsync();
