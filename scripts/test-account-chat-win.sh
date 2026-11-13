@@ -108,7 +108,7 @@ curl -s -m 10 -b "$JAR" "$BASE/api/auth/status" -o "$TMP/w9.json"
   && pass "auth status count=0" || fail "auth status: $(cat "$TMP/w9.json")"
 curl -s -m 60 -b "$JAR" -X POST "$BASE/api/chat" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"gpt-6.1-sol-reasoning","messages":[{"role":"user","content":"hello"}],"attachments":[]}' \
+  -d '{"model":"gpt-5.6-reasoning","messages":[{"role":"user","content":"hello"}],"attachments":[]}' \
   -o "$TMP/w10.json" -w "%{http_code}" > "$TMP/w10.code"
 [ "$(cat "$TMP/w10.code")" = "502" ] && pass "POST /api/chat (no accounts) (http 502)" || fail "chat: $(cat "$TMP/w10.json")"
 [ "$(jget "$TMP/w10.json" "['error']['type']")" = "upstream_error" ] \

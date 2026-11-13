@@ -188,7 +188,7 @@ echo "== real chat with the account =="
 # passing the Chinese message through the Git Bash command line mangled
 # it into "??,??????????" before it reached the gateway (run 13), while
 # the identical message worked from macOS.
-"$PY" -c 'import json,sys; open(sys.argv[1],"w",encoding="utf-8").write(json.dumps({"model":"gpt-6.1-sol-reasoning","messages":[{"role":"user","content":"你好，请用一句话介绍你自己"}],"attachments":[]}, ensure_ascii=False))' "$TMP/r8body.json"
+"$PY" -c 'import json,sys; open(sys.argv[1],"w",encoding="utf-8").write(json.dumps({"model":"gpt-5.6-reasoning","messages":[{"role":"user","content":"你好，请用一句话介绍你自己"}],"attachments":[]}, ensure_ascii=False))' "$TMP/r8body.json"
 curl -s -m 180 -b "$JAR" -X POST "$BASE/api/chat" \
   -H 'Content-Type: application/json' \
   --data-binary "@$TMP/r8body.json" \
