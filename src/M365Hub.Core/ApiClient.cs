@@ -17,7 +17,12 @@ public sealed class ApiClient
 {
     public const string Base = "http://127.0.0.1:8230";
 
-    private readonly HttpClient _http = new();
+    // Loopback must never go through the system proxy: HttpClient
+    // honours proxy auto-detect by default, and a proxy-stalled first
+    // request was misread as a hung gateway in 1.0.4. Remote image
+    // downloads keep a separate default client (proxy allowed).
+    private readonly HttpClient _http = new(new HttpClientHandler { UseProxy = false });
+    private readonly HttpClient _httpRemote = new();
     private readonly string? _cookieFile;
 
     public ApiClient(string? cookieFile = null)
@@ -137,12 +142,15 @@ public sealed class ApiClient
                 string path = url.StartsWith("file://", StringComparison.Ordinal) ? url.Substring(7) : url;
                 return await File.ReadAllBytesAsync(path).ConfigureAwait(false);
             }
-            string full = url.StartsWith("http", StringComparison.Ordinal) ? url : Base + url;
+            bool remote = url.StartsWith("http", StringComparison.Ordinal);
+            string full = remote ? url : Base + url;
             using var req = new HttpRequestMessage(HttpMethod.Get, full);
             string? ck = Cookie;
             if (ck != null) req.Headers.Add("Cookie", "m365hub_admin=" + ck);
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-            using var resp = await _http.SendAsync(req, cts.Token).ConfigureAwait(false);
+            // Remote image hosts keep the default (proxy-aware) client;
+            // gateway-served paths stay on the no-proxy loopback client.
+            using var resp = await (remote ? _httpRemote : _http).SendAsync(req, cts.Token).ConfigureAwait(false);
             if (!resp.IsSuccessStatusCode) return null;
             return await resp.Content.ReadAsByteArrayAsync(cts.Token).ConfigureAwait(false);
         }
@@ -155,3 +163,4 @@ public sealed class ApiClient
     public static JsonArray Arr(JsonObject d, string k)
         => d[k] as JsonArray ?? new JsonArray();
 }
+

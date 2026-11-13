@@ -48,33 +48,6 @@ public sealed class GatewayManager
         return null;
     }
 
-    // Probe outcome for 127.0.0.1:8230: nothing listening, a live gateway
-    // answering HTTP, or a hung one that accepts TCP but never answers.
-    private enum Probe { None, Live, Hung }
-
-    private static Probe ProbeGateway()
-    {
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
-        try
-        {
-            // Task.Run so the async call never captures the UI thread's
-            // context: Start() runs on the UI thread and blocks here.
-            using var resp = Task.Run(() => http.GetAsync("http://127.0.0.1:8230/healthz")).GetAwaiter().GetResult();
-            return Probe.Live;
-        }
-        catch (TaskCanceledException)
-        {
-            // Timeout with no HTTP answer: something took the TCP
-            // connection but never replied -> hung gateway.
-            return Probe.Hung;
-        }
-        catch
-        {
-            // Connection refused etc: nothing listening.
-            return Probe.None;
-        }
-    }
-
     /// <summary>Kill only processes literally named m365hub (the gateway exe). Never touch anything else on the port.</summary>
     private static void ClearHungGateway()
     {
@@ -92,17 +65,20 @@ public sealed class GatewayManager
         if (IsRunning) return true;
         // Probe first with a 2s timeout (Mac 1.0.26, same fix): a hung
         // old gateway used to make the app spawn a second gateway that
-        // could never bind, then poll for a minute.
-        switch (ProbeGateway())
+        // could never bind, then poll for a minute. The probe is a raw
+        // TCP connect (GatewayProbe), never HttpClient: HttpClient
+        // honours the system proxy and a proxy-stalled first request
+        // was misread as a hung gateway in 1.0.4.
+        switch (GatewayProbe.Probe("127.0.0.1", 8230, TimeSpan.FromSeconds(2)))
         {
-            case Probe.Live:
+            case GatewayProbeState.Live:
                 // A gateway is already answering: adopt it, never kill it.
                 _owned = false;
                 return true;
-            case Probe.Hung:
+            case GatewayProbeState.Hung:
                 ClearHungGateway();
                 System.Threading.Thread.Sleep(1000);
-                if (ProbeGateway() == Probe.Hung)
+                if (GatewayProbe.Probe("127.0.0.1", 8230, TimeSpan.FromSeconds(2)) == GatewayProbeState.Hung)
                 {
                     error = "端口 8230 被一个无响应的旧网关占用，且清理失败（只会清理 m365hub 进程）。请手动结束占用 8230 的程序后重试。";
                     return false;
@@ -202,3 +178,4 @@ public sealed class GatewayManager
         }
     }
 }
+

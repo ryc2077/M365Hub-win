@@ -4,6 +4,7 @@
 // cells, MathSegments segmentation, TeX layout geometry, and the
 // radical as one connected polyline (not a glyph plus a floating bar).
 using M365Hub.Core;
+using System.Net.Sockets;
 
 int fails = 0;
 void Check(string name, bool cond, string? extra = null)
@@ -155,6 +156,52 @@ CheckSqrt("sqrt 3", "\\sqrt{3}");
 CheckSqrt("sqrt in expr", "(y-\\sqrt{3})^2");
 CheckSqrt("sqrt with degree", "\\sqrt[3]{x}");
 
+// ================= Gateway probe (1.0.4 regression: the HttpClient
+// probe mistook a proxy-stalled first request for a hung gateway) =================
+int FreePort()
+{
+    var l = new TcpListener(System.Net.IPAddress.Loopback, 0);
+    l.Start();
+    int p = ((System.Net.IPEndPoint)l.LocalEndpoint).Port;
+    l.Stop();
+    return p;
+}
+Check("probe none (nothing listening)",
+    GatewayProbe.Probe("127.0.0.1", FreePort(), TimeSpan.FromSeconds(2)) == GatewayProbeState.None);
+
+// Hung: accept the connection and never send anything.
+{
+    var listener = new TcpListener(System.Net.IPAddress.Loopback, 0);
+    listener.Start();
+    int port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+    var accepted = listener.AcceptTcpClientAsync();
+    var state = GatewayProbe.Probe("127.0.0.1", port, TimeSpan.FromSeconds(2));
+    Check("probe hung (accepts, never answers)", state == GatewayProbeState.Hung, state + "");
+    accepted.Wait(TimeSpan.FromSeconds(3));
+    if (accepted.IsCompletedSuccessfully) accepted.Result.Close();
+    listener.Stop();
+}
+
+// Live: answer a minimal HTTP 200.
+{
+    var listener = new TcpListener(System.Net.IPAddress.Loopback, 0);
+    listener.Start();
+    int port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+    var serve = Task.Run(async () =>
+    {
+        using var c = await listener.AcceptTcpClientAsync();
+        using var s = c.GetStream();
+        var buf = new byte[4096];
+        try { await s.ReadAsync(buf, 0, buf.Length); } catch { }
+        byte[] resp = System.Text.Encoding.ASCII.GetBytes("HTTP/1.0 200 OK\r\nContent-Length: 2\r\n\r\nok");
+        await s.WriteAsync(resp, 0, resp.Length);
+    });
+    var state = GatewayProbe.Probe("127.0.0.1", port, TimeSpan.FromSeconds(2));
+    Check("probe live (answers HTTP)", state == GatewayProbeState.Live, state + "");
+    serve.Wait(TimeSpan.FromSeconds(3));
+    listener.Stop();
+}
+
 Console.WriteLine(fails == 0 ? "ALL OK" : fails + " FAILED");
 return fails == 0 ? 0 : 1;
 
@@ -209,3 +256,4 @@ sealed class RecCanvas : ICanvas
     public void Translate(float x, float y) { _tx += _sx * x; _ty += _sy * y; }
     public void Scale(float sx, float sy) { _sx *= sx; _sy *= sy; }
 }
+
