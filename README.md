@@ -44,7 +44,7 @@ CodeX 经本网关跑长任务的实测（CI 终端输出，run 43534155430，20
 
 - Windows 10 1809 或更高 / Windows 11（x64 或 ARM64）
 - .NET 8
-- Windows App Runtime 1.6（只装一次；没有它 WinUI 3 应用打不开。Microsoft Store 搜 "Windows App Runtime"，或到 https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads 下 1.6 的安装包）
+- Windows App Runtime 1.6（只装一次；没有它 WinUI 3 应用打不开。Microsoft Store 搜 "Windows App Runtime"，或到 https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads 下 1.6 的安装包）。注意：必须装 1.6，机器上装了更新的 1.7 / 1.8 也不能代替；启动时如果弹出安装提示，点「是」让它自己装。
 
 ## 第一次用
 
