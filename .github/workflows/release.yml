@@ -10,9 +10,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release, e.g. 1.0.4"
+        description: "Version to release, e.g. 1.0.6"
         required: true
-        default: "1.0.5"
+        default: "1.0.6"
       run_id:
         description: "Build run id to take the app from (empty = latest successful build run)"
         required: false
@@ -62,6 +62,11 @@ jobs:
           # goes straight into the zip; copying it onto itself fails.
           test -f x64/M365Hub.App.exe
           test -f arm64/M365Hub.App.exe
+          # 1.0.6: the bundled 1.6 installers must be in the zip, or the
+          # self-bootstrap fallback is dead on arrival.
+          test -f x64/runtime/WindowsAppRuntimeInstall.exe
+          test -f arm64/runtime/WindowsAppRuntimeInstall.exe
+          ls -la x64/runtime/WindowsAppRuntimeInstall.exe arm64/runtime/WindowsAppRuntimeInstall.exe
           7z a -tzip "$ZIP" README-winui.txt x64 arm64
           ls -la "$ZIP"
           TAG="v${VERSION}"
@@ -71,9 +76,9 @@ jobs:
           else
             gh release create "$TAG" "$ZIP" \
               --title "M365Hub Windows ${VERSION}" \
-              --notes "Prebuilt Windows app from CI build run ${RUN_ID} (all green: Core tests, WinUI x64/ARM64 build, gateway cold start, app launch, account add and chat, real-account PKCE + real Chinese chat, CodeX tool calls).
+              --notes "Prebuilt Windows app from CI build run ${RUN_ID} (all green: Core tests, WinUI x64/ARM64 build, gateway cold start, app launch, clean-environment launch with no runtime preinstalled, account add and chat, real-account PKCE + real Chinese chat, CodeX tool calls).
 
-          Unzip and double-click M365Hub.App.exe in x64 (Intel/AMD) or arm64 (ARM64). Requires .NET 8 and Windows App Runtime 1.6.
+          Unzip and double-click M365Hub.App.exe in x64 (Intel/AMD) or arm64 (ARM64). Requires .NET 8. Windows App Runtime 1.6 is bundled (x64/runtime/, arm64/runtime/) and installed automatically on first launch if missing — no manual runtime install needed.
           First login: admin password is admin123 (forced change on first login)."
           fi
           echo "Release: $(gh release view "$TAG" --json url --jq .url)"

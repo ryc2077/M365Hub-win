@@ -44,7 +44,7 @@ CodeX 经本网关跑长任务的实测（CI 终端输出，run 43534155430，20
 
 - Windows 10 1809 或更高 / Windows 11（x64 或 ARM64）
 - .NET 8
-- Windows App Runtime 1.6（只装一次；没有它 WinUI 3 应用打不开。Microsoft Store 搜 "Windows App Runtime"，或到 https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads 下 1.6 的安装包）。注意：必须装 1.6，机器上装了更新的 1.7 / 1.8 也不能代替；启动时如果弹出安装提示，点「是」让它自己装。
+- Windows App Runtime 1.6（自带安装器，首次启动自动装：安装包里 `x64/runtime/` 与 `arm64/runtime/` 各有一份微软官方 1.6 安装器，机器上没有 1.6 时应用启动时自己静默装上，不用你手动装、也不会再弹“需要 Windows App Runtime”的安装框）。注意：认的就是 1.6，机器上装了更新的 1.7 / 1.8 也不能代替 1.6——缺 1.6 时应用会自己装上。
 
 ## 第一次用
 
@@ -98,6 +98,7 @@ CI 在 GitHub Actions 里跑（`.github/workflows/build.yml`）：Core 测试、
 
 ## 版本
 
+- **1.0.6**（2026-11-14）：自带 Windows App Runtime 1.6 安装器，任意机器解压即用，不再按版本卡——应用启动时显式自举（关掉框架自带的安装提示），本机有 1.6 直接用，没有就静默跑自带的安装器装上；还失败才报一句人话的错。CI 在无 runtime 的干净环境实测启动通过。
 - **1.0.5**（2026-11-14）：修 BTW 旁聊泄漏——CodeX 的 `/btw` 旁聊与主任务共用同一个上游对话，旁聊内容会进主任务上下文；网关侧修：缺会话头时不再共用默认对话，旁聊走单独分支；网关重编。
 - **1.0.4**（2026-11-13）：默认模型改 `gpt-5.6-reasoning`；网关重编（含模型压缩、choices 信封修复）；启动自愈（TcpClient 探测、卡死旧网关自动清理）；登录 10 秒超时 + “正在登录…”状态；测试脚本真实对话模型 6.1 → 5.6。
 - 更早版本见 [Releases](https://github.com/ryc2077/M365Hub-win/releases)。

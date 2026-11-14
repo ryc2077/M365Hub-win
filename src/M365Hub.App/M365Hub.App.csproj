@@ -3,6 +3,11 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <Version>1.0.6</Version>
+    <!-- 1.0.6: 关掉 SDK 自带的自动初始化（它会在缺 runtime 时弹框架的
+         “需要安装 Windows App Runtime”框），改由 RuntimeBootstrap.cs
+         显式自举：先试本机 1.6，没有就静默跑自带的安装器。 -->
+    <WindowsAppSdkBootstrapInitialize>false</WindowsAppSdkBootstrapInitialize>
     <RootNamespace>M365Hub.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x64;ARM64</Platforms>
