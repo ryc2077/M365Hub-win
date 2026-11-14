@@ -7,6 +7,12 @@ M365Hub 的 Windows 原生客户端：WinUI 3 界面（C# + XAML）+ 自带 Go �
 
 三端同源：Mac 版是原生 SwiftUI，Android 版是原生 Java Views，网关是同一份 Go 程序。
 
+## 截图
+
+![登录页](docs/images/app-login.png)
+
+登录页（CI 实测截图，1.0.5 build）：左侧是聊天 / 仪表盘 / 账号 / 模型 / 用量 / 代理 / 对话 / 本地记忆，右侧输管理员密码登录。
+
 ## 下载
 
 [Releases](https://github.com/ryc2077/M365Hub-win/releases/latest) 里下 `M365Hub-winui-<版本>.zip`，解压即用，不用安装。
