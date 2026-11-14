@@ -13,6 +13,26 @@ M365Hub 的 Windows 原生客户端：WinUI 3 界面（C# + XAML）+ 自带 Go �
 
 登录页（CI 实测截图，1.0.5 build）：左侧是聊天 / 仪表盘 / 账号 / 模型 / 用量 / 代理 / 对话 / 本地记忆，右侧输管理员密码登录。
 
+## CodeX 实测
+
+CodeX 经本网关跑长任务的实测（CI 终端输出，run 43534155430，2026-11-14；该跑 60 项通过，/btw 隔离 4 项全过）：
+
+![CodeX 跑任务](docs/images/codex-task.png)
+
+跑任务：75 秒跑完一个真任务（notes.py + 5 份设计文档 + 一致性报告），单测 3 个全过，exit 0。
+
+![CodeX /btw 旁聊](docs/images/codex-btw.png)
+
+/btw 旁聊：旁聊问 17×23，答 391，标记 SIDE-QUARK-88，主任务的代号没串进来。
+
+![会话压缩](docs/images/codex-compact.png)
+
+会话压缩：一次 compaction 调用 6 秒，恰好回 1 个 compaction 项，摘要里留着代号 ZEBRA-7741，回放时模型能答出代号。
+
+![记忆压缩](docs/images/codex-memory.png)
+
+记忆压缩：110 条事实的记忆 8594 字符标 needsSummary，后台模型压成 725 字符，20 轮对话一条没截。
+
 ## 下载
 
 [Releases](https://github.com/ryc2077/M365Hub-win/releases/latest) 里下 `M365Hub-winui-<版本>.zip`，解压即用，不用安装。
