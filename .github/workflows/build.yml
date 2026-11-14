@@ -74,6 +74,63 @@ jobs:
           }
           Write-Host "BUNDLED-INSTALLER: PASS"
 
+      # 1.0.6 clean-environment proof: this runner image does NOT
+      # preinstall the Windows App Runtime (the "Install if missing"
+      # step below finds it missing on a fresh runner), so launch the
+      # app here — before anything installs the runtime — and prove it
+      # comes up by installing its bundled installer on its own. No
+      # preinstalled runtime, no framework install dialog. The app must
+      # reach the login page (gateway answers) and the runtime must be
+      # present again afterwards, which proves the fallback actually
+      # installed it. If the runner already has 1.6, fail loudly instead
+      # of claiming a clean test that never was.
+      # (First attempt tried uninstalling the runtime after the normal
+      # launch test; Remove-AppxPackage silently left 6000.519.329.0
+      # behind, so the uninstall approach cannot prove anything here.)
+      - name: Clean-environment launch test (no runtime preinstalled)
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force test-evidence | Out-Null
+          $exe = "src/M365Hub.App/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/M365Hub.App.exe"
+          $installer = "src/M365Hub.App/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/runtime/WindowsAppRuntimeInstall.exe"
+          $armInstaller = "src/M365Hub.App/bin/ARM64/Release/net8.0-windows10.0.19041.0/win-arm64/runtime/WindowsAppRuntimeInstall.exe"
+          if (-not (Test-Path $installer)) { throw "bundled installer missing: $installer" }
+          if (-not (Test-Path $armInstaller)) { throw "bundled installer missing: $armInstaller" }
+          Write-Host "bundled installers present: $((Get-Item $installer).Length) bytes x64, $((Get-Item $armInstaller).Length) bytes arm64"
+          $pre = Get-AppxPackage -Name "Microsoft.WindowsAppRuntime.1.6" -AllUsers | Select-Object -First 1
+          if ($pre) { throw "CLEAN-LAUNCH-TEST: FAIL - runner already has runtime 1.6 ($($pre.Version)); clean proof impossible on this image" }
+          Write-Host "no runtime 1.6 on this runner; launching app with no runtime installed"
+          Remove-Item -Recurse -Force "$env:LOCALAPPDATA/M365Hub" -ErrorAction SilentlyContinue
+          $p = Start-Process -FilePath $exe -PassThru
+          Write-Host "app pid: $($p.Id)"
+          $up = $false
+          for ($i = 1; $i -le 120; $i++) {
+            $code = curl.exe -s -o NUL -w "%{http_code}" -m 2 http://127.0.0.1:8230/api/admin/session
+            if ($code -ne "000" -and $code -ne "") { $up = $true; break }
+            if ($i % 15 -eq 0) { Write-Host "attempt ${i}: http=$code" }
+            Start-Sleep -Seconds 1
+          }
+          Write-Host "gateway up: $up"
+          Start-Sleep -Seconds 5
+          $p.Refresh()
+          Write-Host "app process alive: $(-not $p.HasExited), exit code: $($p.ExitCode)"
+          $rt = Get-AppxPackage -Name "Microsoft.WindowsAppRuntime.1.6" -AllUsers | Select-Object -First 1
+          Write-Host "runtime 1.6 present again (bundled installer ran): $($rt.Version)"
+          Get-Content "$env:LOCALAPPDATA/M365Hub/runtime-bootstrap.log" -ErrorAction SilentlyContinue
+          Add-Type -AssemblyName System.Windows.Forms
+          Add-Type -AssemblyName System.Drawing
+          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+          $bmp.Save("test-evidence/app-launch-clean.png", [System.Drawing.Imaging.ImageFormat]::Png)
+          Write-Host "screenshot saved: test-evidence/app-launch-clean.png ($($bounds.Width)x$($bounds.Height))"
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          Get-Process m365hub -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          if (-not $up) { throw "CLEAN-LAUNCH-TEST: FAIL - app gateway never answered without preinstalled runtime" }
+          if (-not $rt) { throw "CLEAN-LAUNCH-TEST: FAIL - runtime 1.6 not installed after app launch (bundled installer did not run)" }
+          Write-Host "CLEAN-LAUNCH-TEST: PASS"
+
+
       # Gateway cold start, through the exact binary the app ships.
       - name: Gateway cold-start test
         shell: bash
@@ -139,66 +196,6 @@ jobs:
           Get-Process m365hub -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
           if (-not $up) { throw "APP-LAUNCH-TEST: FAIL - app gateway never answered" }
           Write-Host "APP-LAUNCH-TEST: PASS"
-
-      # 1.0.6 clean-environment proof: remove the runtime, then launch
-      # the app and prove it comes up by installing its bundled installer
-      # on its own — no preinstalled runtime, no framework install
-      # dialog. The app must reach the login page (gateway answers) and
-      # the runtime must be present again afterwards, which proves the
-      # fallback actually installed it. If the 1.6 framework package
-      # cannot be removed, fail here instead of claiming a clean test
-      # that never was.
-      - name: Clean-environment launch test (no runtime preinstalled)
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory -Force test-evidence | Out-Null
-          $exe = "src/M365Hub.App/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/M365Hub.App.exe"
-          $installer = "src/M365Hub.App/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/runtime/WindowsAppRuntimeInstall.exe"
-          $armInstaller = "src/M365Hub.App/bin/ARM64/Release/net8.0-windows10.0.19041.0/win-arm64/runtime/WindowsAppRuntimeInstall.exe"
-          if (-not (Test-Path $installer)) { throw "bundled installer missing: $installer" }
-          if (-not (Test-Path $armInstaller)) { throw "bundled installer missing: $armInstaller" }
-          Write-Host "bundled installers present: $((Get-Item $installer).Length) bytes x64, $((Get-Item $armInstaller).Length) bytes arm64"
-          Get-Process M365Hub.App, m365hub -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-          Start-Sleep -Seconds 2
-          Write-Host "uninstalling Windows App Runtime 1.6 packages (only the 1.6 family; other versions stay)..."
-          Get-AppxPackage -Name "Microsoft.WindowsAppRuntime*" -AllUsers |
-            Where-Object { $_.Name -eq "Microsoft.WindowsAppRuntime.1.6" -or $_.Name -like "Microsoft.WindowsAppRuntime.*.1.6" } |
-            ForEach-Object {
-              Write-Host " removing $($_.Name) $($_.Version)"
-              Remove-AppxPackage -Package $_.PackageFullName -AllUsers -ErrorAction SilentlyContinue
-            }
-          $left = Get-AppxPackage -Name "Microsoft.WindowsAppRuntime.1.6" -AllUsers | Select-Object -First 1
-          if ($left) { throw "CLEAN-LAUNCH-TEST: FAIL - could not remove runtime 1.6 ($($left.Version)); clean proof impossible on this runner" }
-          Write-Host "runtime 1.6 removed; launching app with no runtime installed"
-          Remove-Item -Recurse -Force "$env:LOCALAPPDATA/M365Hub" -ErrorAction SilentlyContinue
-          $p = Start-Process -FilePath $exe -PassThru
-          Write-Host "app pid: $($p.Id)"
-          $up = $false
-          for ($i = 1; $i -le 120; $i++) {
-            $code = curl.exe -s -o NUL -w "%{http_code}" -m 2 http://127.0.0.1:8230/api/admin/session
-            if ($code -ne "000" -and $code -ne "") { $up = $true; break }
-            if ($i % 15 -eq 0) { Write-Host "attempt ${i}: http=$code" }
-            Start-Sleep -Seconds 1
-          }
-          Write-Host "gateway up: $up"
-          Start-Sleep -Seconds 5
-          $p.Refresh()
-          Write-Host "app process alive: $(-not $p.HasExited), exit code: $($p.ExitCode)"
-          $rt = Get-AppxPackage -Name "Microsoft.WindowsAppRuntime.1.6" -AllUsers | Select-Object -First 1
-          Write-Host "runtime 1.6 present again (bundled installer ran): $($rt.Version)"
-          Get-Content "$env:LOCALAPPDATA/M365Hub/runtime-bootstrap.log" -ErrorAction SilentlyContinue
-          Add-Type -AssemblyName System.Windows.Forms
-          Add-Type -AssemblyName System.Drawing
-          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-          $bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
-          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
-          $bmp.Save("test-evidence/app-launch-clean.png", [System.Drawing.Imaging.ImageFormat]::Png)
-          Write-Host "screenshot saved: test-evidence/app-launch-clean.png ($($bounds.Width)x$($bounds.Height))"
-          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-          Get-Process m365hub -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-          if (-not $up) { throw "CLEAN-LAUNCH-TEST: FAIL - app gateway never answered without preinstalled runtime" }
-          if (-not $rt) { throw "CLEAN-LAUNCH-TEST: FAIL - runtime 1.6 not installed after app launch (bundled installer did not run)" }
-          Write-Host "CLEAN-LAUNCH-TEST: PASS"
 
       # Account-add + chat, through the exact endpoints the WinUI app
       # calls: admin login (forced password change), accounts list,
