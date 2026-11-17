@@ -40,7 +40,7 @@ public sealed class UsagePage : PageBase
         {
             var d = await State.Api.GetAsync("/api/usage?days=" + _days);
             var logs = await State.Api.GetAsync("/api/usage/logs?limit=50");
-            var t = UsageTotals.FromJson(d["totals"]!.AsObject());
+            var t = UsageTotals.FromJson(JsonSafe.Obj(d["totals"]));
             var cards = new Grid();
             cards.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             cards.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -61,8 +61,8 @@ public sealed class UsagePage : PageBase
             int latN = 0;
             foreach (var item in logArr)
             {
-                var o = item!.AsObject();
-                if (o["latencyMs"] != null) { avgMs += o["latencyMs"]!.GetValue<int>(); latN++; }
+                var o = JsonSafe.Obj(item);
+                if (o["latencyMs"] != null) { avgMs += JsonSafe.Int(o["latencyMs"]); latN++; }
             }
             AddCard(StatCard("平均延迟", latN > 0 ? ((int)(avgMs / latN)) + " ms" : "—", Theme), 1, 1);
             _content.Children.Add(cards);
@@ -74,8 +74,8 @@ public sealed class UsagePage : PageBase
                 var days = byDay.Select(kv => kv.Key).OrderBy(k => k).ToList();
                 var vals = days.Select(k =>
                 {
-                    var o = byDay[k]!.AsObject();
-                    return (o["promptTokens"]?.GetValue<long>() ?? 0) + (o["outputTokens"]?.GetValue<long>() ?? 0);
+                    var o = JsonSafe.Obj(byDay[k]);
+                    return JsonSafe.Long(o["promptTokens"]) + JsonSafe.Long(o["outputTokens"]);
                 }).ToList();
                 long max = Math.Max(1, vals.Max());
                 var canvas = new Canvas { Height = 180, Margin = new Thickness(8) };
@@ -123,14 +123,14 @@ public sealed class UsagePage : PageBase
             logPanel.Children.Add(new TextBlock { Text = "请求明细（最近 50 条，30 天内）", FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
             foreach (var item in logArr)
             {
-                var o = item!.AsObject();
-                string at = o["at"]?.GetValue<string>() ?? "";
-                string model = o["model"]?.GetValue<string>() ?? "";
-                string ep = o["endpoint"]?.GetValue<string>() ?? "";
-                int pt = o["promptTokens"]?.GetValue<int>() ?? 0;
-                int ot = o["outputTokens"]?.GetValue<int>() ?? 0;
-                int lat = o["latencyMs"]?.GetValue<int>() ?? 0;
-                bool ok = o["ok"]?.GetValue<bool>() ?? true;
+                var o = JsonSafe.Obj(item);
+                string at = JsonSafe.Str(o["at"]);
+                string model = JsonSafe.Str(o["model"]);
+                string ep = JsonSafe.Str(o["endpoint"]);
+                int pt = JsonSafe.Int(o["promptTokens"]);
+                int ot = JsonSafe.Int(o["outputTokens"]);
+                int lat = JsonSafe.Int(o["latencyMs"]);
+                bool ok = JsonSafe.Bool(o["ok"], true);
                 logPanel.Children.Add(Row(TimeShort(at) + " · " + model + " · " + ep,
                     " " + pt + "/" + ot + " · " + lat + " ms" + (ok ? "" : " · 失败")));
             }
@@ -146,7 +146,7 @@ public sealed class UsagePage : PageBase
     private void AddGroup(string title, JsonObject? group)
     {
         if (group == null || group.Count == 0) return;
-        var rows = group.Select(kv => (Key: kv.Key, Val: kv.Value?["requests"]?.GetValue<int>() ?? 0))
+        var rows = group.Select(kv => (Key: kv.Key, Val: JsonSafe.Int(kv.Value?["requests"])))
             .OrderByDescending(x => x.Val).Take(8).ToList();
         int max = Math.Max(1, rows.Max(x => x.Val));
         var panel = new StackPanel { Spacing = 4 };

@@ -4,6 +4,7 @@
 // cells, MathSegments segmentation, TeX layout geometry, and the
 // radical as one connected polyline (not a glyph plus a floating bar).
 using M365Hub.Core;
+using System.Text.Json.Nodes;
 using System.Net.Sockets;
 
 int fails = 0;
@@ -201,6 +202,89 @@ Check("probe none (nothing listening)",
     serve.Wait(TimeSpan.FromSeconds(3));
     listener.Stop();
 }
+
+// ================= JsonSafe (1.0.7 regression: the 1.0.5/1.0.6
+// ApiClient error branch read the gateway's error OBJECT as a
+// string, so every failed chat call showed "The node must be of type
+// 'JsonValue'." instead of the real reason. The gateway's writeErr
+// shape is {"error": {"type","message","code"}}; with no healthy
+// account /api/chat answers exactly that with HTTP 502 — the
+// test-account-chat script already asserts that shape.) =================
+JsonObject GwErr(string json) => JsonSafe.Obj(JsonNode.Parse(json));
+
+// The reported bug, reproduced with the exact body the gateway
+// returns: the old 1.0.5/1.0.6 expression throws InvalidOperationException
+// with exactly the message the user saw on screen.
+bool threwJsonValue = false;
+try
+{
+    var errBody = GwErr("{\"error\":{\"type\":\"upstream_error\",\"message\":\"accounts: no healthy account available\",\"code\":502}}");
+    _ = errBody["error"]?.GetValue<string>();
+}
+catch (InvalidOperationException e) { threwJsonValue = e.Message == "The node must be of type 'JsonValue'."; }
+Check("bug repro: error object read as string throws JsonValue", threwJsonValue);
+
+// The fix: the same body now yields the actionable reason.
+Check("gateway 502 no-account -> Chinese guidance",
+    JsonSafe.ErrorMessage(GwErr("{\"error\":{\"type\":\"upstream_error\",\"message\":\"accounts: no healthy account available\",\"code\":502}}"), 502)
+        == "没有可用的 Microsoft 365 账号，请先在「账号」页添加一个账号，再回来聊天。");
+Check("gateway 502 other upstream error -> raw message",
+    JsonSafe.ErrorMessage(GwErr("{\"error\":{\"type\":\"upstream_error\",\"message\":\"upstream timeout\",\"code\":502}}"), 502) == "upstream timeout");
+Check("string error body -> string",
+    JsonSafe.ErrorMessage(GwErr("{\"error\":\"plain failure\"}"), 500) == "plain failure");
+Check("top-level message wins",
+    JsonSafe.ErrorMessage(GwErr("{\"message\":\"top level\"}"), 500) == "top level");
+Check("empty body -> HTTP code",
+    JsonSafe.ErrorMessage(GwErr("{}"), 502) == "HTTP 502");
+Check("error object without message -> type",
+    JsonSafe.ErrorMessage(GwErr("{\"error\":{\"type\":\"upstream_error\",\"code\":502}}"), 502) == "upstream_error");
+Check("error object with numeric message -> type",
+    JsonSafe.ErrorMessage(GwErr("{\"error\":{\"type\":\"upstream_error\",\"message\":123,\"code\":502}}"), 502) == "upstream_error");
+Check("error object with array message -> type",
+    JsonSafe.ErrorMessage(GwErr("{\"error\":{\"type\":\"upstream_error\",\"message\":[\"a\"],\"code\":502}}"), 502) == "upstream_error");
+
+// Wrong-typed scalar reads never throw; they yield the fallback.
+var mixed = GwErr("{\"s\":\"x\",\"n\":7,\"f\":1.5,\"b\":true,\"o\":{\"a\":1},\"a\":[1],\"nul\":null}");
+Check("Str string", JsonSafe.Str(mixed["s"]) == "x");
+Check("Str object -> fallback", JsonSafe.Str(mixed["o"]) == "");
+Check("Str array -> fallback", JsonSafe.Str(mixed["a"]) == "");
+Check("Str number -> fallback", JsonSafe.Str(mixed["n"]) == "");
+Check("Str null -> fallback", JsonSafe.Str(mixed["nul"]) == "");
+Check("Str missing -> fallback", JsonSafe.Str(mixed["nope"]) == "");
+Check("Str fallback kept", JsonSafe.Str(mixed["o"], "dflt") == "dflt");
+Check("Int int", JsonSafe.Int(mixed["n"]) == 7);
+Check("Int string -> 0", JsonSafe.Int(mixed["s"]) == 0);
+Check("Int double -> truncates", JsonSafe.Int(mixed["f"]) == 1);
+Check("Int bool -> 0", JsonSafe.Int(mixed["b"]) == 0);
+Check("Int fallback kept", JsonSafe.Int(mixed["o"], 42) == 42);
+Check("Long long", JsonSafe.Long(JsonNode.Parse("3000000000")) == 3000000000L);
+Check("Long huge double -> fallback", JsonSafe.Long(JsonNode.Parse("1e30")) == 0);
+Check("Double double", JsonSafe.Double(mixed["f"]) == 1.5);
+Check("Double int -> converts", JsonSafe.Double(mixed["n"]) == 7.0);
+Check("Bool bool", JsonSafe.Bool(mixed["b"]));
+Check("Bool string -> false", !JsonSafe.Bool(mixed["s"]));
+Check("Bool fallback true kept", JsonSafe.Bool(mixed["o"], true));
+Check("Obj object", JsonSafe.Obj(mixed["o"]).Count == 1);
+Check("Obj array -> empty", JsonSafe.Obj(mixed["a"]).Count == 0);
+Check("Obj null -> empty", JsonSafe.Obj(null).Count == 0);
+Check("Arr array", JsonSafe.Arr(mixed["a"]).Count == 1);
+Check("Arr object -> empty", JsonSafe.Arr(mixed["o"]).Count == 0);
+Check("StrOrNull string", JsonSafe.StrOrNull(mixed["s"]) == "x");
+Check("StrOrNull object -> null", JsonSafe.StrOrNull(mixed["o"]) == null);
+
+// ChatPage's reported path: a non-string "content" must not crash
+// the send; it reads as empty and the page shows "(空回复)".
+Check("chat content string", JsonSafe.Str(GwErr("{\"content\":\"hi\"}")["content"]) == "hi");
+Check("chat content object -> empty", JsonSafe.Str(GwErr("{\"content\":{\"parts\":[]}}")["content"]) == "");
+Check("chat content array -> empty", JsonSafe.Str(GwErr("{\"content\":[]}")["content"]) == "");
+
+// Typed views tolerate wrong-typed fields instead of throwing.
+var badAccount = GwErr("{\"id\":{\"x\":1},\"email\":5,\"inFlight\":\"3\",\"cooldownSec\":[1]}");
+var ai = AccountInfo.FromJson(badAccount);
+Check("AccountInfo wrong types -> defaults", ai.Id == "" && ai.Email == "" && ai.InFlight == 0 && ai.CooldownSec == 0);
+var badTotals = GwErr("{\"requests\":\"9\",\"promptTokens\":\"100\",\"hitRate\":\"high\"}");
+var ut = UsageTotals.FromJson(badTotals);
+Check("UsageTotals wrong types -> defaults", ut.Requests == 0 && ut.PromptTokens == 0 && ut.HitRate == 0);
 
 Console.WriteLine(fails == 0 ? "ALL OK" : fails + " FAILED");
 return fails == 0 ? 0 : 1;

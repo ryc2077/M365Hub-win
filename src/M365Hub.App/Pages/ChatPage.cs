@@ -153,7 +153,7 @@ public sealed partial class ChatPage : UserControl
             var d = await _state.Api.GetAsync("/api/accounts");
             var accounts = new List<AccountInfo>();
             foreach (var item in ApiClient.Arr(d, "accounts"))
-                accounts.Add(AccountInfo.FromJson(item!.AsObject()));
+                accounts.Add(AccountInfo.FromJson(JsonSafe.Obj(item)));
             _accountBox.Items.Clear();
             _accountBox.Items.Add(new ComboBoxItem { Content = "轮询", Tag = "" });
             foreach (var a in accounts)
@@ -414,8 +414,8 @@ public sealed partial class ChatPage : UserControl
                     if (_state.ChatAccountId.Length > 0) body["account_id"] = _state.ChatAccountId;
                     var d = await _state.Api.PostAsync("/api/chat/image", body);
                     var imgs = ApiClient.Arr(d, "images");
-                    pending.Content = d["text"]?.GetValue<string>() ?? "";
-                    foreach (var im in imgs) pending.Images.Add(im!.GetValue<string>());
+                    pending.Content = JsonSafe.Str(d["text"]);
+                    foreach (var im in imgs) pending.Images.Add(JsonSafe.Str(im));
                     if (pending.Images.Count == 0 && pending.Content.Length == 0)
                         pending.Content = "没有返回图片。";
                 }
@@ -472,7 +472,7 @@ public sealed partial class ChatPage : UserControl
             try
             {
                 var d = await _state.Api.PostAsync("/api/chat", reqBody);
-                pm.Content = d["content"]?.GetValue<string>() ?? "";
+                pm.Content = JsonSafe.Str(d["content"]);
                 if (pm.Content.Length == 0) pm.Content = "(空回复)";
             }
             catch (Exception e)

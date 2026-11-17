@@ -68,14 +68,14 @@ public sealed class AccountsPage : PageBase
         {
             var d = await State.Api.GetAsync("/api/accounts");
             _accounts = ApiClient.Arr(d, "accounts")
-                .Select(x => AccountInfo.FromJson(x!.AsObject())).ToList();
+                .Select(x => AccountInfo.FromJson(JsonSafe.Obj(x))).ToList();
             var u = await State.Api.GetAsync("/api/usage?days=30");
             _calls30.Clear();
             if (u["byAccount"] is JsonObject byAcc)
             {
                 foreach (var kv in byAcc)
                 {
-                    int n = kv.Value?["requests"]?.GetValue<int>() ?? 0;
+                    int n = JsonSafe.Int(kv.Value?["requests"]);
                     _calls30[kv.Key] = n;
                 }
             }
@@ -148,7 +148,7 @@ public sealed class AccountsPage : PageBase
             foreach (var r in ApiClient.Arr(d, "results"))
             {
                 total++;
-                if (r!["ok"]?.GetValue<bool>() == true) ok++;
+                if (JsonSafe.Bool(r!["ok"])) ok++;
             }
             ShowErr(""); // reuse the error line as a status line
             ErrText.Text = "刷新完成：" + ok + "/" + total + " 成功。";
@@ -172,7 +172,7 @@ public sealed class AccountsPage : PageBase
         try
         {
             var d = await State.Api.PostAsync("/api/accounts/batch", body);
-            ErrText.Text = "已更新 " + (d["updated"]?.GetValue<int>() ?? 0) + " 个账号。";
+            ErrText.Text = "已更新 " + JsonSafe.Int(d["updated"]) + " 个账号。";
             ErrText.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 120, 0));
             ErrText.Visibility = Visibility.Visible;
             _selected.Clear();
@@ -205,8 +205,8 @@ public sealed class AccountsPage : PageBase
         {
             var d = await State.Api.PostAsync("/api/auth/start",
                 new JsonObject { ["flow"] = flow });
-            authUrl = d["authUrl"]?.GetValue<string>() ?? "";
-            userCode = d["userCode"]?.GetValue<string>() ?? "";
+            authUrl = JsonSafe.Str(d["authUrl"]);
+            userCode = JsonSafe.Str(d["userCode"]);
             if (authUrl.Length == 0) { ShowErr("网关没有返回授权链接。"); return; }
         }
         catch (Exception e) { ShowErr(e.Message); return; }
@@ -299,7 +299,7 @@ public sealed class AccountsPage : PageBase
                 if (flow == "device") body["userCode"] = value;
                 else body["callbackUrl"] = value;
                 var d = await State.Api.PostAsync("/api/auth/callback", body);
-                ErrText.Text = "已授权 " + (d["email"]?.GetValue<string>() ?? "") + "。";
+                ErrText.Text = "已授权 " + JsonSafe.Str(d["email"]) + "。";
                 ErrText.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 120, 0));
                 ErrText.Visibility = Visibility.Visible;
                 await LoadAsync();
@@ -338,16 +338,16 @@ public sealed class AccountsPage : PageBase
             {
                 var d = await State.Api.PostAsync("/api/admin/models/test",
                     new JsonObject { ["model"] = model, ["prompt"] = promptBox.Text });
-                if (d["ok"]?.GetValue<bool>() == true)
+                if (JsonSafe.Bool(d["ok"]))
                 {
-                    result.Text = "✓ 健康 · " + (d["duration_ms"]?.GetValue<int>() ?? 0) + " ms · "
-                        + (d["account"]?.GetValue<string>() ?? "") + "\n"
-                        + (d["content"]?.GetValue<string>() ?? "");
+                    result.Text = "✓ 健康 · " + JsonSafe.Int(d["duration_ms"]) + " ms · "
+                        + JsonSafe.Str(d["account"]) + "\n"
+                        + JsonSafe.Str(d["content"]);
                 }
                 else
                 {
-                    result.Text = "✗ 失败 · " + (d["duration_ms"]?.GetValue<int>() ?? 0) + " ms · "
-                        + (d["error"]?.GetValue<string>() ?? "");
+                    result.Text = "✗ 失败 · " + JsonSafe.Int(d["duration_ms"]) + " ms · "
+                        + JsonSafe.Str(d["error"]);
                 }
             }
             catch (Exception e) { result.Text = "✗ 失败 · " + e.Message; }

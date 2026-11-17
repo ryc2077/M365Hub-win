@@ -27,8 +27,8 @@ public sealed class DashboardPage : PageBase
             var logs = await State.Api.GetAsync("/api/usage/logs?limit=6");
             var stats = await State.Api.GetAsync("/api/stats");
 
-            var t1 = UsageTotals.FromJson(d1["totals"]!.AsObject());
-            var t365 = UsageTotals.FromJson(d365["totals"]!.AsObject());
+            var t1 = UsageTotals.FromJson(JsonSafe.Obj(d1["totals"]));
+            var t365 = UsageTotals.FromJson(JsonSafe.Obj(d365["totals"]));
             var cards = new Grid();
             cards.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             cards.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -61,13 +61,13 @@ public sealed class DashboardPage : PageBase
             recent.Children.Add(new TextBlock { Text = "最近请求", FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
             foreach (var item in ApiClient.Arr(logs, "logs"))
             {
-                var o = item!.AsObject();
-                string at = o["at"]?.GetValue<string>() ?? "";
-                string model = o["model"]?.GetValue<string>() ?? "";
-                string ep = o["endpoint"]?.GetValue<string>() ?? "";
-                int pt = o["promptTokens"]?.GetValue<int>() ?? 0;
-                int ot = o["outputTokens"]?.GetValue<int>() ?? 0;
-                bool ok = o["ok"]?.GetValue<bool>() ?? true;
+                var o = JsonSafe.Obj(item);
+                string at = JsonSafe.Str(o["at"]);
+                string model = JsonSafe.Str(o["model"]);
+                string ep = JsonSafe.Str(o["endpoint"]);
+                int pt = JsonSafe.Int(o["promptTokens"]);
+                int ot = JsonSafe.Int(o["outputTokens"]);
+                bool ok = JsonSafe.Bool(o["ok"], true);
                 recent.Children.Add(Row(TimeShort(at) + " · " + model + " · " + ep,
                     " " + pt + "/" + ot + " token" + (ok ? "" : " · 失败")));
             }

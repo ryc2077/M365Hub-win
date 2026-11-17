@@ -55,7 +55,7 @@ public sealed class LoginPage : PageBase
             }
             var d = await State.Api.PostLoginAsync("/api/admin/login",
                 new JsonObject { ["password"] = pw });
-            if (d["must_change_password"]?.GetValue<bool>() == true)
+            if (JsonSafe.Bool(d["must_change_password"]))
             {
                 _needsChange = true;
                 _newPw.Visibility = Visibility.Visible;

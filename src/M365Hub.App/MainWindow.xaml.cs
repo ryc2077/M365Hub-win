@@ -65,7 +65,7 @@ public sealed partial class MainWindow : Window
             var s = await State.Api.GetAsync("/api/admin/session");
             StartupOverlay.Visibility = Visibility.Collapsed;
             RefreshHistory();
-            Navigate(s["loggedIn"]?.GetValue<bool>() == true ? "chat" : "login");
+            Navigate(JsonSafe.Bool(s["loggedIn"]) ? "chat" : "login");
         }
         catch (Exception e)
         {

@@ -23,14 +23,14 @@ public sealed class AccountInfo
 
     public static AccountInfo FromJson(JsonObject o) => new()
     {
-        Id = o["id"]?.GetValue<string>() ?? "",
-        Email = o["email"]?.GetValue<string>() ?? "",
-        DisplayName = o["displayName"]?.GetValue<string>() ?? "",
-        Status = o["status"]?.GetValue<string>() ?? "",
-        ExpiresAt = o["expiresAt"]?.GetValue<string>() ?? "",
-        BoundProxy = o["boundProxy"]?.GetValue<string>() ?? "",
-        InFlight = o["inFlight"]?.GetValue<int>() ?? 0,
-        CooldownSec = o["cooldownSec"]?.GetValue<int>() ?? 0,
+        Id = JsonSafe.Str(o["id"]),
+        Email = JsonSafe.Str(o["email"]),
+        DisplayName = JsonSafe.Str(o["displayName"]),
+        Status = JsonSafe.Str(o["status"]),
+        ExpiresAt = JsonSafe.Str(o["expiresAt"]),
+        BoundProxy = JsonSafe.Str(o["boundProxy"]),
+        InFlight = JsonSafe.Int(o["inFlight"]),
+        CooldownSec = JsonSafe.Int(o["cooldownSec"]),
     };
 
     public bool IsOnline => Status == "online" || Status == "active";
@@ -54,8 +54,8 @@ public sealed class ModelInfo
                 list.Add(new ModelInfo { Id = s, Name = s });
             else if (item is JsonObject o)
             {
-                string id = o["id"]?.GetValue<string>() ?? o["name"]?.GetValue<string>() ?? "";
-                if (id.Length > 0) list.Add(new ModelInfo { Id = id, Name = o["name"]?.GetValue<string>() ?? id });
+                string id = JsonSafe.Str(o["id"], JsonSafe.Str(o["name"]));
+                if (id.Length > 0) list.Add(new ModelInfo { Id = id, Name = JsonSafe.Str(o["name"], id) });
             }
         }
         return list;
@@ -74,13 +74,13 @@ public sealed class ProxyInfo
 
     public static ProxyInfo FromJson(JsonObject o) => new()
     {
-        Url = o["url"]?.GetValue<string>() ?? "",
-        Failures = o["failures"]?.GetValue<int>() ?? 0,
-        CooldownUntil = o["cooldownUntil"]?.GetValue<string>() ?? "",
-        LastCheck = o["lastCheck"]?.GetValue<string>() ?? "",
-        LatencyMs = o["latencyMs"]?.GetValue<int>() ?? 0,
-        LastError = o["lastError"]?.GetValue<string>() ?? "",
-        Health = o["health"]?.GetValue<string>() ?? "",
+        Url = JsonSafe.Str(o["url"]),
+        Failures = JsonSafe.Int(o["failures"]),
+        CooldownUntil = JsonSafe.Str(o["cooldownUntil"]),
+        LastCheck = JsonSafe.Str(o["lastCheck"]),
+        LatencyMs = JsonSafe.Int(o["latencyMs"]),
+        LastError = JsonSafe.Str(o["lastError"]),
+        Health = JsonSafe.Str(o["health"]),
     };
 }
 
@@ -95,11 +95,11 @@ public sealed class UsageTotals
 
     public static UsageTotals FromJson(JsonObject o) => new()
     {
-        Requests = o["requests"]?.GetValue<int>() ?? 0,
-        PromptTokens = o["promptTokens"]?.GetValue<long>() ?? 0,
-        OutputTokens = o["outputTokens"]?.GetValue<long>() ?? 0,
-        SavedTokens = o["savedTokens"]?.GetValue<long>() ?? 0,
-        SessionHits = o["sessionHits"]?.GetValue<int>() ?? 0,
-        HitRate = o["hitRate"]?.GetValue<double>() ?? 0,
+        Requests = JsonSafe.Int(o["requests"]),
+        PromptTokens = JsonSafe.Long(o["promptTokens"]),
+        OutputTokens = JsonSafe.Long(o["outputTokens"]),
+        SavedTokens = JsonSafe.Long(o["savedTokens"]),
+        SessionHits = JsonSafe.Int(o["sessionHits"]),
+        HitRate = JsonSafe.Double(o["hitRate"]),
     };
 }

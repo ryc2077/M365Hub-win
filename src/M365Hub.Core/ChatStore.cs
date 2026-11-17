@@ -51,28 +51,28 @@ public sealed class ChatStore
         try
         {
             if (!File.Exists(_file)) return;
-            var d = JsonNode.Parse(File.ReadAllText(_file))!.AsObject();
-            CurrentId = d["currentId"]?.GetValue<string>();
+            var d = JsonSafe.Obj(JsonNode.Parse(File.ReadAllText(_file)));
+            CurrentId = JsonSafe.StrOrNull(d["currentId"]);
             var arr = d["list"] as JsonArray;
             if (arr == null) return;
             foreach (var item in arr)
             {
-                var c = item!.AsObject();
-                var conv = new Conv(c["id"]?.GetValue<string>() ?? "",
-                    c["title"]?.GetValue<string>() ?? "新对话");
-                conv.CreatedAt = c["createdAt"]?.GetValue<string>() ?? conv.CreatedAt;
+                var c = JsonSafe.Obj(item);
+                var conv = new Conv(JsonSafe.Str(c["id"]),
+                    JsonSafe.Str(c["title"], "新对话"));
+                conv.CreatedAt = JsonSafe.Str(c["createdAt"], conv.CreatedAt);
                 var ms = c["messages"] as JsonArray;
                 if (ms != null)
                 {
                     foreach (var mj in ms)
                     {
-                        var m = mj!.AsObject();
-                        var msg = new Msg(m["role"]?.GetValue<string>() ?? "",
-                            m["content"]?.GetValue<string>() ?? "");
+                        var m = JsonSafe.Obj(mj);
+                        var msg = new Msg(JsonSafe.Str(m["role"]),
+                            JsonSafe.Str(m["content"]));
                         var im = m["images"] as JsonArray;
-                        if (im != null) foreach (var x in im) msg.Images.Add(x!.GetValue<string>());
+                        if (im != null) foreach (var x in im) msg.Images.Add(JsonSafe.Str(x));
                         var ai = m["attImages"] as JsonArray;
-                        if (ai != null) foreach (var x in ai) msg.AttImages.Add(x!.GetValue<string>());
+                        if (ai != null) foreach (var x in ai) msg.AttImages.Add(JsonSafe.Str(x));
                         conv.Messages.Add(msg);
                     }
                 }

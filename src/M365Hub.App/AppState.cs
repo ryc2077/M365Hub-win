@@ -29,7 +29,7 @@ public sealed class AppState
         try
         {
             if (File.Exists(_settingsFile))
-                _settings = JsonNode.Parse(File.ReadAllText(_settingsFile))!.AsObject();
+                _settings = JsonSafe.Obj(JsonNode.Parse(File.ReadAllText(_settingsFile)));
         }
         catch { _settings = new JsonObject(); }
     }
@@ -41,19 +41,19 @@ public sealed class AppState
 
     public bool ThemeDark
     {
-        get => _settings["theme_dark"]?.GetValue<bool>() ?? false;
+        get => JsonSafe.Bool(_settings["theme_dark"]);
         set { _settings["theme_dark"] = value; SaveSettings(); }
     }
 
     public string ChatAccountId
     {
-        get => _settings["chat_account_id"]?.GetValue<string>() ?? "";
+        get => JsonSafe.Str(_settings["chat_account_id"]);
         set { _settings["chat_account_id"] = value; SaveSettings(); }
     }
 
     public string ChatModel
     {
-        get => _settings["chat_model"]?.GetValue<string>() ?? "";
+        get => JsonSafe.Str(_settings["chat_model"]);
         set { _settings["chat_model"] = value; SaveSettings(); }
     }
 

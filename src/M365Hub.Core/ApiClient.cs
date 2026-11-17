@@ -104,7 +104,9 @@ public sealed class ApiClient
         JsonObject d;
         try
         {
-            d = string.IsNullOrEmpty(text) ? new JsonObject() : JsonNode.Parse(text)!.AsObject();
+            // A top-level array (or "null") is not an object: JsonSafe.Obj
+            // yields an empty object instead of throwing here.
+            d = string.IsNullOrEmpty(text) ? new JsonObject() : JsonSafe.Obj(JsonNode.Parse(text));
         }
         catch
         {
@@ -112,9 +114,11 @@ public sealed class ApiClient
         }
         if ((int)resp.StatusCode >= 400)
         {
-            string m = d["message"]?.GetValue<string>() ?? d["error"]?.GetValue<string>()
-                ?? "HTTP " + (int)resp.StatusCode;
-            throw new ApiException(m);
+            // 1.0.7: the gateway's error body is an object
+            // {"error": {"type","message","code"}}. Reading it as a
+            // string threw "The node must be of type 'JsonValue'" and
+            // hid the real reason on every failed chat call.
+            throw new ApiException(JsonSafe.ErrorMessage(d, (int)resp.StatusCode));
         }
         return d;
     }

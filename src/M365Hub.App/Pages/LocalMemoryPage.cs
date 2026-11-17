@@ -39,11 +39,11 @@ public sealed class LocalMemoryPage : PageBase
             var d = await State.Api.GetAsync("/api/local-memory");
             foreach (var item in ApiClient.Arr(d, "memories"))
             {
-                var o = item!.AsObject();
-                string key = o["key"]?.GetValue<string>() ?? "";
-                int turns = o["turns"]?.GetValue<int>() ?? 0;
-                int chars = o["chars"]?.GetValue<int>() ?? 0;
-                bool hasSummary = o["hasSummary"]?.GetValue<bool>() ?? false;
+                var o = JsonSafe.Obj(item);
+                string key = JsonSafe.Str(o["key"]);
+                int turns = JsonSafe.Int(o["turns"]);
+                int chars = JsonSafe.Int(o["chars"]);
+                bool hasSummary = JsonSafe.Bool(o["hasSummary"]);
                 var stack = new StackPanel { Spacing = 2 };
                 stack.Children.Add(new TextBlock
                 {
@@ -74,13 +74,13 @@ public sealed class LocalMemoryPage : PageBase
             var d = await State.Api.GetAsync("/api/local-memory?key=" + Uri.EscapeDataString(key));
             var sb = new System.Text.StringBuilder();
             sb.AppendLine(key);
-            string summary = d["summary"]?.GetValue<string>() ?? "";
+            string summary = JsonSafe.Str(d["summary"]);
             if (summary.Length > 0) sb.AppendLine("[摘要]\n" + summary + "\n");
             foreach (var t in ApiClient.Arr(d, "turns"))
             {
-                var o = t!.AsObject();
-                sb.AppendLine("[" + (o["role"]?.GetValue<string>() ?? "") + "] "
-                    + (o["content"]?.GetValue<string>() ?? ""));
+                var o = JsonSafe.Obj(t);
+                sb.AppendLine("[" + JsonSafe.Str(o["role"]) + "] "
+                    + JsonSafe.Str(o["content"]));
             }
             _detail.Text = sb.ToString();
         }

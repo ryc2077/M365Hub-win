@@ -43,7 +43,7 @@ public sealed class ProxiesPage : PageBase
             var d = await State.Api.GetAsync("/api/proxies");
             foreach (var item in ApiClient.Arr(d, "proxies"))
             {
-                var p = ProxyInfo.FromJson(item!.AsObject());
+                var p = ProxyInfo.FromJson(JsonSafe.Obj(item));
                 var stack = new StackPanel { Spacing = 2 };
                 stack.Children.Add(new TextBlock
                 {

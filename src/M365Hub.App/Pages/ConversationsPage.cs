@@ -24,10 +24,10 @@ public sealed class ConversationsPage : PageBase
             var d = await State.Api.GetAsync("/api/m365/conversations");
             var convs = ApiClient.Arr(d, "conversations");
             var cloud = ApiClient.Arr(d, "cloud_conversations");
-            string cloudErr = d["cloud_error"]?.GetValue<string>() ?? "";
-            bool autoCleanup = d["autoCleanup"]?.GetValue<bool>() ?? false;
-            int keepN = d["keepN"]?.GetValue<int>() ?? 0;
-            int maxAge = d["maxAgeHours"]?.GetValue<int>() ?? 0;
+            string cloudErr = JsonSafe.Str(d["cloud_error"]);
+            bool autoCleanup = JsonSafe.Bool(d["autoCleanup"]);
+            int keepN = JsonSafe.Int(d["keepN"]);
+            int maxAge = JsonSafe.Int(d["maxAgeHours"]);
             var head = new StackPanel { Spacing = 2 };
             head.Children.Add(Row("本地绑定 " + convs.Count + " 个 · 云端 " + cloud.Count + " 个",
                 " · 自动清理 " + (autoCleanup ? "开" : "关") + "（保留 " + keepN + " 个 / " + maxAge + " 小时）"));
@@ -42,11 +42,11 @@ public sealed class ConversationsPage : PageBase
 
             foreach (var item in convs)
             {
-                var o = item!.AsObject();
-                string id = o["conversation_id"]?.GetValue<string>() ?? "";
-                string tone = o["tone"]?.GetValue<string>() ?? "";
-                int turns = o["turns"]?.GetValue<int>() ?? 0;
-                string last = o["last_used_at"]?.GetValue<string>() ?? "";
+                var o = JsonSafe.Obj(item);
+                string id = JsonSafe.Str(o["conversation_id"]);
+                string tone = JsonSafe.Str(o["tone"]);
+                int turns = JsonSafe.Int(o["turns"]);
+                string last = JsonSafe.Str(o["last_used_at"]);
                 var stack = new StackPanel { Spacing = 2 };
                 stack.Children.Add(new TextBlock
                 {
@@ -75,10 +75,10 @@ public sealed class ConversationsPage : PageBase
                 Body.Children.Add(new TextBlock { Text = "本地暂无绑定（还没聊过，或绑定 2 小时闲置后被清理）。" });
             foreach (var item in cloud)
             {
-                var o = item!.AsObject();
-                string id = o["conversation_id"]?.GetValue<string>() ?? o["id"]?.GetValue<string>() ?? "";
-                string name = o["chatName"]?.GetValue<string>() ?? o["title"]?.GetValue<string>() ?? "";
-                string email = o["accountEmail"]?.GetValue<string>() ?? "";
+                var o = JsonSafe.Obj(item);
+                string id = JsonSafe.Str(o["conversation_id"], JsonSafe.Str(o["id"]));
+                string name = JsonSafe.Str(o["chatName"], JsonSafe.Str(o["title"]));
+                string email = JsonSafe.Str(o["accountEmail"]);
                 var stack = new StackPanel { Spacing = 2 };
                 stack.Children.Add(new TextBlock
                 {
