@@ -1,6 +1,7 @@
 // Admin login, including the forced password change when the
 // gateway still runs the default password (no session is issued
 // until the password is replaced).
+using M365Hub.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System.Text.Json.Nodes;
